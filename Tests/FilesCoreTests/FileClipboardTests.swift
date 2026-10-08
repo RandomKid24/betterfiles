@@ -88,6 +88,29 @@ final class FileClipboardTests: TempDirTestCase {
         XCTAssertEqual(Set(try FileManager.default.contentsOfDirectory(atPath: dir.path)), ["f.txt", "f copy.txt"])
     }
 
+    func testPartialFailureKeepsFailedItemsCutForRetry() throws {
+        let a = try mkdir("A"), b = try mkdir("B")
+        let good = try touch("good.txt", "x", in: a)
+        let missing = a.appendingPathComponent("missing.txt") // does not exist yet
+
+        clip.cut([good, missing])
+        let out = clip.paste(into: b)
+
+        XCTAssertFalse(exists(good))
+        XCTAssertTrue(exists(b.appendingPathComponent("good.txt")))
+        XCTAssertEqual(out.count, 2)
+        XCTAssertFalse(out[1].succeeded)
+        XCTAssertTrue(clip.canPaste, "failed items must stay on the clipboard")
+        XCTAssertEqual(board.urls, [missing])
+
+        try Data("y".utf8).write(to: missing) // the problem is fixed; retry
+        clip.paste(into: b)
+
+        XCTAssertFalse(exists(missing), "the retried cut must still be a move")
+        XCTAssertTrue(exists(b.appendingPathComponent("missing.txt")))
+        XCTAssertFalse(clip.canPaste)
+    }
+
     func testPasteWithEmptyClipboardDoesNothing() {
         XCTAssertFalse(clip.canPaste)
         XCTAssertTrue(clip.paste(into: dir).isEmpty)

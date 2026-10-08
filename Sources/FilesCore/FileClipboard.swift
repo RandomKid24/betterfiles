@@ -4,7 +4,7 @@ import Foundation
 public protocol PasteboardProtocol: AnyObject {
     var changeCount: Int { get }
     var urls: [URL] { get }
-    /// An empty array clears the pasteboard.
+    /// An empty array clears the pasteboard. Must update changeCount synchronously.
     func write(urls: [URL])
 }
 
@@ -36,8 +36,14 @@ public final class FileClipboard {
         guard !urls.isEmpty else { return [] }
         if pendingCutChangeCount == pasteboard.changeCount {
             let outcomes = FileOps.move(urls, to: folder)
-            pendingCutChangeCount = nil
-            pasteboard.write(urls: []) // like Explorer: a completed cut-paste empties the clipboard
+            let failed = outcomes.filter { !$0.succeeded }.map(\.source)
+            if failed.isEmpty {
+                pendingCutChangeCount = nil
+                pasteboard.write(urls: []) // like Explorer: a completed cut-paste empties the clipboard
+            } else {
+                pasteboard.write(urls: failed) // keep only what failed, still cut, so it can be retried
+                pendingCutChangeCount = pasteboard.changeCount
+            }
             return outcomes
         }
         return FileOps.copy(urls, to: folder)
