@@ -24,6 +24,16 @@ public final class Usage {
 
     public func get(_ path: String) -> UsageRecord? { records[path] }
 
+    /// Everything opened before that still exists, so frequent items are always searchable instantly.
+    public func candidates() -> [Candidate] {
+        records.keys.compactMap { path in
+            guard FileManager.default.fileExists(atPath: path) else { return nil }
+            let isApp = path.hasSuffix(".app")
+            let last = (path as NSString).lastPathComponent
+            return Candidate(name: isApp ? (last as NSString).deletingPathExtension : last, path: path, isApp: isApp)
+        }
+    }
+
     public func record(path: String, now: Date = Date()) {
         var r = records[path] ?? UsageRecord(count: 0, last: now)
         r.count += 1

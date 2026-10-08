@@ -7,12 +7,14 @@ final class Model {
     var text = ""
     var results: [Candidate] = []
     var selected = 0
-    var showCount = 0
+    var visible = false
     var onDismiss: () -> Void = {}
 
     @ObservationIgnored private let search = Search()
     @ObservationIgnored private let usage: Usage
-    @ObservationIgnored private var raw: [Candidate] = []
+    @ObservationIgnored private var apps: [Candidate] = []
+    @ObservationIgnored private var base: [Candidate] = []   // apps + history: instant, no Spotlight
+    @ObservationIgnored private var raw: [Candidate] = []    // streamed file hits
 
     init(usage: Usage) {
         self.usage = usage
@@ -23,6 +25,7 @@ final class Model {
                 self.rerank()
             }
         }
+        refreshApps()
     }
 
     func textChanged() {
@@ -45,17 +48,35 @@ final class Model {
         }
     }
 
+    /// Called when the panel opens.
     func reset() {
         text = ""
         raw = []
         results = []
         selected = 0
+        base = apps + usage.candidates()
+        refreshApps()
+    }
+
+    /// Called once the panel is fully hidden: stop the live query so it doesn't run in the background.
+    func didHide() {
+        search.stop()
+        raw = []
+    }
+
+    private func refreshApps() {
+        Task.detached {
+            let found = AppIndex.scan()
+            await MainActor.run { self.apps = found; if self.base.isEmpty { self.base = found } }
+        }
     }
 
     // Live Spotlight updates keep the user's highlighted row; a new query starts at the top.
     private func rerank(keepSelection: Bool = true) {
         let previous = keepSelection && results.indices.contains(selected) ? results[selected].path : nil
-        results = Ranker.rank(query: text, candidates: raw, usage: usage.get)
+        var seen = Set<String>()
+        let all = (base + raw).filter { seen.insert($0.path).inserted }
+        results = Ranker.rank(query: text, candidates: all, usage: usage.get)
         selected = Selection.index(of: previous, in: results)
     }
 }
