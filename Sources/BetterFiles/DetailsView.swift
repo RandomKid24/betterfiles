@@ -178,7 +178,8 @@ struct DetailsView: NSViewRepresentable {
 
         func beginRename(_ table: NSTableView) {
             let row = table.selectedRow
-            guard row >= 0, let cell = table.view(atColumn: 0, row: row, makeIfNecessary: true) as? NSTableCellView,
+            let col = table.column(withIdentifier: NSUserInterfaceItemIdentifier(Column.name.rawValue))
+            guard row >= 0, col >= 0, let cell = table.view(atColumn: col, row: row, makeIfNecessary: true) as? NSTableCellView,
                   let field = cell.textField else { return }
             field.isEditable = true
             table.window?.makeFirstResponder(field)
