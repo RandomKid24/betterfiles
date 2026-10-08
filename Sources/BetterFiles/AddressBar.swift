@@ -43,7 +43,13 @@ struct AddressBar: View {
         editing = true
         DispatchQueue.main.async {
             focused = true
-            NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil)
+            // Focus lands a turn later; only select-all once the field editor is first responder,
+            // otherwise the action would reach the file list and select every file.
+            DispatchQueue.main.async {
+                if NSApp.keyWindow?.firstResponder is NSTextView {
+                    NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil)
+                }
+            }
         }
     }
 
