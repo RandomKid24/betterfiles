@@ -9,6 +9,7 @@ final class ZoomableCollectionView: NSCollectionView {
     var onCopy: (() -> Void)?
     var onCut: (() -> Void)?
     var onPaste: (() -> Void)?
+    var onSelectionChanged: (() -> Void)?
 
     override func scrollWheel(with event: NSEvent) {
         if event.modifierFlags.contains(.command) { onZoom?(event.scrollingDeltaY * 2) } else { super.scrollWheel(with: event) }
@@ -24,6 +25,12 @@ final class ZoomableCollectionView: NSCollectionView {
         }
     }
 
+    // NSCollectionView's own selectAll doesn't tell the delegate, so push the new selection ourselves.
+    override func selectAll(_ sender: Any?) {
+        super.selectAll(sender)
+        onSelectionChanged?()
+    }
+
     @objc func copy(_ sender: Any?) { onCopy?() }
     @objc func cut(_ sender: Any?) { onCut?() }
     @objc func paste(_ sender: Any?) { onPaste?() }
@@ -32,6 +39,7 @@ final class ZoomableCollectionView: NSCollectionView {
 final class IconCell: NSCollectionViewItem {
     static let id = NSUserInterfaceItemIdentifier("IconCell")
     private(set) var representedURL: URL?
+    private var requestedBucket = 0
     private let icon = NSImageView()
     private let label = NSTextField(labelWithString: "")
 
@@ -68,15 +76,17 @@ final class IconCell: NSCollectionViewItem {
     }
 
     @MainActor
-    func configure(_ item: FileItem, size: CGFloat) {
+    func configure(_ item: FileItem, size: CGFloat, keepImage: Bool = false) {
         representedURL = item.url
         label.stringValue = item.name
         label.alphaValue = item.isHidden ? 0.55 : 1
-        icon.image = Icons.icon(for: item)
+        if !keepImage { icon.image = Icons.icon(for: item) }
         guard !item.isFolder else { return }
+        let bucket = Thumbnails.bucket(for: size)
+        requestedBucket = bucket
         Thumbnails.load(url: item.url, size: size) { [weak self] image in
-            // The cell may have been reused for another file while the thumbnail loaded.
-            if self?.representedURL == item.url { self?.icon.image = image }
+            // The cell may have been reused for another file, or asked for a newer size, while the thumbnail loaded.
+            if self?.representedURL == item.url, self?.requestedBucket == bucket { self?.icon.image = image }
         }
     }
 }
@@ -109,6 +119,7 @@ struct IconView: NSViewRepresentable {
         cv.onCopy = { [weak model] in model?.copySelection() }
         cv.onCut = { [weak model] in model?.cutSelection() }
         cv.onPaste = { [weak model] in model?.paste() }
+        cv.onSelectionChanged = { [weak c, weak cv] in if let c, let cv { c.pushSelection(cv) } }
         let double = NSClickGestureRecognizer(target: c, action: #selector(Coordinator.doubleClicked(_:)))
         double.numberOfClicksRequired = 2
         double.delaysPrimaryMouseButtonEvents = false
@@ -133,6 +144,7 @@ struct IconView: NSViewRepresentable {
         private var items: [FileItem] = []
         private var lastVersion = -1
         private var lastZoom = 0.0
+        private var lastBucket = 0
         private var syncing = false
 
         init(_ model: BrowserModel) { self.model = model }
@@ -144,8 +156,22 @@ struct IconView: NSViewRepresentable {
             if version != lastVersion { items = model.visible; lastVersion = version; needsReload = true }
             if zoom != lastZoom {
                 lastZoom = zoom
-                (cv.collectionViewLayout as? NSCollectionViewFlowLayout)?.itemSize = NSSize(width: zoom + 36, height: zoom + 48)
-                needsReload = true // cells must re-request thumbnails at the new size
+                let layout = cv.collectionViewLayout as? NSCollectionViewFlowLayout
+                layout?.itemSize = NSSize(width: zoom + 36, height: zoom + 48)
+                if !needsReload {
+                    // Zoom only: resize in place. Visible cells keep their image and ask for a new thumbnail only
+                    // when the size bucket changes.
+                    layout?.invalidateLayout()
+                    let bucket = Thumbnails.bucket(for: CGFloat(zoom))
+                    if bucket != lastBucket {
+                        for case let cell as IconCell in cv.visibleItems() {
+                            if let path = cv.indexPath(for: cell), path.item < items.count {
+                                cell.configure(items[path.item], size: CGFloat(zoom), keepImage: true)
+                            }
+                        }
+                    }
+                }
+                lastBucket = Thumbnails.bucket(for: CGFloat(zoom))
             }
             if needsReload { cv.reloadData() }
             let wanted = Set(items.indices.filter { selection.contains(items[$0].url) }.map { IndexPath(item: $0, section: 0) })
@@ -164,7 +190,7 @@ struct IconView: NSViewRepresentable {
         func collectionView(_ cv: NSCollectionView, didSelectItemsAt indexPaths: Set<IndexPath>) { pushSelection(cv) }
         func collectionView(_ cv: NSCollectionView, didDeselectItemsAt indexPaths: Set<IndexPath>) { pushSelection(cv) }
 
-        private func pushSelection(_ cv: NSCollectionView) {
+        func pushSelection(_ cv: NSCollectionView) {
             guard !syncing else { return }
             model.selection = Set(cv.selectionIndexPaths.compactMap { $0.item < items.count ? items[$0.item].url : nil })
         }
