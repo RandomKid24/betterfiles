@@ -8,6 +8,9 @@ let package = Package(
         .target(name: "LauncherCore"),
         .executableTarget(name: "BetterLauncher", dependencies: ["LauncherCore"]),
         .testTarget(name: "LauncherCoreTests", dependencies: ["LauncherCore"]),
+        .target(name: "FilesCore"),
+        .executableTarget(name: "BetterFiles", dependencies: ["FilesCore"]),
+        .testTarget(name: "FilesCoreTests", dependencies: ["FilesCore"]),
     ],
     swiftLanguageModes: [.v5]
 )
