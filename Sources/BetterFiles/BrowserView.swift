@@ -10,8 +10,13 @@ struct BrowserView: View {
             TopBar(model: model)
             Divider()
             ZStack {
-                DetailsView(model: model, version: model.version, selection: model.selection,
-                            sort: model.sortColumn, ascending: model.ascending)
+                switch model.viewMode {
+                case .details:
+                    DetailsView(model: model, version: model.version, selection: model.selection,
+                                sort: model.sortColumn, ascending: model.ascending)
+                case .icons:
+                    IconView(model: model, version: model.version, selection: model.selection, zoom: model.zoom)
+                }
                 if let m = model.displayMessage {
                     Text(m).foregroundStyle(.secondary).multilineTextAlignment(.center).padding().allowsHitTesting(false)
                 }
