@@ -10,10 +10,8 @@ struct BrowserView: View {
             TopBar(model: model)
             Divider()
             ZStack {
-                // TEMPORARY (Tasks 7 and 8 replace this with DetailsView / IconView)
-                List(model.visible, id: \.url) { item in
-                    Text(item.name).onTapGesture(count: 2) { model.open(item) }
-                }
+                DetailsView(model: model, version: model.version, selection: model.selection,
+                            sort: model.sortColumn, ascending: model.ascending)
                 if let m = model.displayMessage {
                     Text(m).foregroundStyle(.secondary).multilineTextAlignment(.center).padding().allowsHitTesting(false)
                 }
