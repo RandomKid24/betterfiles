@@ -102,6 +102,7 @@ struct SidebarView: NSViewRepresentable {
                 places.append(Node(url: home.appendingPathComponent(folder), name: folder, symbol: symbol))
             }
             places.append(Node(url: URL(fileURLWithPath: "/Applications"), name: "Applications", symbol: "square.grid.2x2"))
+            places.append(Node(url: home.appendingPathComponent(".Trash"), name: "Trash", symbol: "trash"))
             favoritesInTree = Favorites.shared.urls
             for f in favoritesInTree {
                 let n = Node(url: f, name: f.lastPathComponent, symbol: "star")
@@ -209,6 +210,7 @@ struct SidebarView: NSViewRepresentable {
                 return c
             }()
             cell.textField?.stringValue = node.isHeader ? node.name.uppercased() : node.name
+            cell.toolTip = node.isHeader ? nil : node.url.path
             if !node.isHeader {
                 cell.imageView?.image = NSImage(systemSymbolName: node.symbol, accessibilityDescription: nil)
                 cell.imageView?.symbolConfiguration = .init(pointSize: 14, weight: .regular)

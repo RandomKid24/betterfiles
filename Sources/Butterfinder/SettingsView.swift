@@ -34,12 +34,20 @@ struct SettingsView: View {
                     Toggle("Remember view, sort and zoom for each folder", isOn: $s.perFolderView)
                     Toggle("Ask before moving to the Trash", isOn: $s.confirmTrash)
                 }
+                Section("Opening folders") {
+                    Toggle("Open items with a single click", isOn: $s.singleClickOpen)
+                    Toggle("Start in the folder I was last in", isOn: $s.startAtLast)
+                }
                 Section("Startup") {
                     Toggle("Open at login (runs quietly in the background)", isOn: Binding(get: { login }, set: { on in
                         LoginItem.set(on)
                         login = LoginItem.isEnabled
                     }))
                     .disabled(!LoginItem.available)
+                }
+                Section {
+                    Button("Reset All Settings\u{2026}", role: .destructive) { s.resetToDefaults() }
+                        .help("Puts every option back to its default. Favorites and your files are not touched.")
                 }
                 Section("Window") {
                     Toggle("Show preview pane", isOn: $prefs.showPreview)
@@ -62,6 +70,11 @@ struct SettingsView: View {
                     }
                     .pickerStyle(.segmented)
                     Toggle("Striped rows in the list", isOn: $s.stripedRows)
+                    Picker("Dates", selection: $s.dateStyle) {
+                        Text("Oct 9, 2026").tag("abbreviated"); Text("09/10/2026").tag("numeric"); Text("2 hours ago").tag("relative")
+                    }
+                    Toggle("Show tag dots", isOn: $s.showTagDots)
+                    Toggle("Tint folders with their tag color", isOn: $s.colorFolders)
                 }
             }
             .formStyle(.grouped)
@@ -79,7 +92,7 @@ struct SettingsView: View {
                 Section("Files") {
                     shortcut("Quick Look", "Space")
                     shortcut("Rename", "F2 or Return on a name")
-                    shortcut("New folder", "\u{21E7}\u{2318}N")
+                    shortcut("New folder / new file", "\u{21E7}\u{2318}N  \u{2325}\u{2318}N")
                     shortcut("Cut / Copy / Paste", "\u{2318}X  \u{2318}C  \u{2318}V")
                     shortcut("Undo", "\u{2318}Z")
                     shortcut("Move to Trash", "Delete or \u{2318}Delete")
@@ -91,7 +104,7 @@ struct SettingsView: View {
             .formStyle(.grouped)
             .tabItem { Label("Shortcuts", systemImage: "keyboard") }.tag("shortcuts")
         }
-        .frame(width: 520, height: 480)
+        .frame(width: 540, height: 620)
     }
 
     private func shortcut(_ name: String, _ keys: String) -> some View {

@@ -67,7 +67,7 @@ final class IconCell: NSCollectionViewItem {
         icon.imageScaling = .scaleProportionallyUpOrDown
         label.alignment = .center
         label.maximumNumberOfLines = 2
-        label.lineBreakMode = .byTruncatingMiddle
+        label.lineBreakMode = .byTruncatingTail   // wraps at word boundaries, then cuts the end of line two
         label.cell?.wraps = true
         for sub in [icon, label, dots] { sub.translatesAutoresizingMaskIntoConstraints = false; v.addSubview(sub) }
         NSLayoutConstraint.activate([
@@ -102,6 +102,7 @@ final class IconCell: NSCollectionViewItem {
         label.stringValue = item.name
         label.alphaValue = item.isHidden ? 0.55 : 1
         dots.attributedStringValue = TagDots.string(item.tags)
+        view.toolTip = Tooltips.text(for: item)
         if !keepImage { icon.image = Icons.icon(for: item) }
         guard !item.isFolder else { return }
         let bucket = Thumbnails.bucket(for: size)
@@ -152,7 +153,7 @@ struct IconView: NSViewRepresentable {
         cv.menu = c.ctx.build()
         cv.onSelectionChanged = { [weak c, weak cv] in if let c, let cv { c.pushSelection(cv) } }
         let double = NSClickGestureRecognizer(target: c, action: #selector(Coordinator.doubleClicked(_:)))
-        double.numberOfClicksRequired = 2
+        double.numberOfClicksRequired = 1   // the handler decides: double-click, or single click in single-click mode
         double.delaysPrimaryMouseButtonEvents = false
         cv.addGestureRecognizer(double)
         c.collection = cv
@@ -180,6 +181,7 @@ struct IconView: NSViewRepresentable {
         private var lastURL: URL?
         private var lastZoom = 0.0
         private var lastBucket = 0
+        private var refreshWork: DispatchWorkItem?
         private var syncing = false
 
         let ctx: ContextMenu
@@ -198,18 +200,27 @@ struct IconView: NSViewRepresentable {
             if zoom != lastZoom {
                 lastZoom = zoom
                 let layout = cv.collectionViewLayout as? NSCollectionViewFlowLayout
-                layout?.itemSize = NSSize(width: zoom + 36, height: zoom + 48)
+                layout?.itemSize = NSSize(width: max(zoom + 36, 92), height: zoom + 48)   // never narrower than a readable label
                 if !needsReload {
                     // Zoom only: resize in place. Visible cells keep their image and ask for a new thumbnail only
                     // when the size bucket changes.
                     layout?.invalidateLayout()
+                    // Sharper thumbnails are requested only once the slider rests; until then the current ones are just scaled.
                     let bucket = Thumbnails.bucket(for: CGFloat(zoom))
                     if bucket != lastBucket {
-                        for case let cell as IconCell in cv.visibleItems() {
-                            if let path = cv.indexPath(for: cell), path.item < items.count {
-                                cell.configure(items[path.item], size: CGFloat(zoom), keepImage: true)
+                        refreshWork?.cancel()
+                        let work = DispatchWorkItem { [weak self, weak cv] in
+                            MainActor.assumeIsolated {
+                                guard let self, let cv else { return }
+                                for case let cell as IconCell in cv.visibleItems() {
+                                    if let path = cv.indexPath(for: cell), path.item < self.items.count {
+                                        cell.configure(self.items[path.item], size: CGFloat(self.lastZoom), keepImage: true)
+                                    }
+                                }
                             }
                         }
+                        refreshWork = work
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: work)
                     }
                 }
                 lastBucket = Thumbnails.bucket(for: CGFloat(zoom))
@@ -263,6 +274,9 @@ struct IconView: NSViewRepresentable {
         }
 
         @objc func doubleClicked(_ g: NSClickGestureRecognizer) {
+            let clicks = NSApp.currentEvent?.clickCount ?? 1
+            let plain = NSApp.currentEvent?.modifierFlags.intersection([.command, .shift, .option, .control]).isEmpty ?? true
+            guard plain, Settings.shared.singleClickOpen ? clicks == 1 : clicks >= 2 else { return }
             guard let cv = collection, let path = cv.indexPathForItem(at: g.location(in: cv)), path.item < items.count else { return }
             model.open(items[path.item])
         }

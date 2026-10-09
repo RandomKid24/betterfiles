@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- Butterfinder: **resizable preview pane**. Drag the divider; the width is remembered.
+- Butterfinder: **tooltips** on files (path, kind, size, dates, tags), icons, sidebar places, breadcrumbs and toolbar controls.
+- Butterfinder: **New File** (⌥⌘N), **Move to…** and **Copy to…** (pick a destination folder), and a **Trash** place in the sidebar.
+- Butterfinder settings: date style (abbreviated, numeric or relative), tag dots on or off, tinted folders on or off, open with a single click, start in the last folder, and **Reset All Settings**. The settings window is taller so every option is visible.
+
+### Changed
+- Butterfinder: dragging the icon-size slider is smoother. Thumbnails are no longer re-requested for every file on each step, the size steps are coarser when icons are large, and the zoom level is saved once the slider stops instead of on every tick.
+- Butterfinder: icon names wrap at word boundaries ("Quarterly / Reports") and icons never get narrower than a readable label.
+
+
 ## [1.1.0] - 2026-10-09
 
 ### Added

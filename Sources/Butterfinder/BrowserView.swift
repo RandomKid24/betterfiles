@@ -39,8 +39,8 @@ struct TabContent: View {
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
                 if active.showPreview && tab.secondary == nil {   // two panes need the room
-                    Divider()
-                    PreviewPane(items: active.selectedItems, onClose: { active.togglePreview() }).frame(width: 280)
+                    PreviewDivider()
+                    PreviewPane(items: active.selectedItems, onClose: { active.togglePreview() }).frame(width: Prefs.shared.previewWidth)
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
             }
@@ -104,6 +104,27 @@ struct Pane: View {
     }
 }
 
+/// Drag this to make the preview pane wider or narrower (the width is remembered).
+struct PreviewDivider: View {
+    @State private var startWidth: Double?
+
+    var body: some View {
+        Rectangle().fill(Color.clear)
+            .frame(width: 7)
+            .overlay(Divider())
+            .contentShape(Rectangle())
+            .pointerStyle(.columnResize)
+            .help("Drag to resize the preview")
+            .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                .onChanged { v in
+                    let prefs = Prefs.shared
+                    if startWidth == nil { startWidth = prefs.previewWidth }
+                    prefs.previewWidth = min(520, max(220, (startWidth ?? prefs.previewWidth) - v.translation.width))
+                }
+                .onEnded { _ in startWidth = nil; Prefs.shared.savePreviewWidth() })
+    }
+}
+
 /// Small icon button with a hover highlight.
 struct ToolButton: View {
     let symbol: String
@@ -157,11 +178,13 @@ struct TopBar: View {
             }
             .padding(.horizontal, 8).padding(.vertical, 5)
             .frame(minWidth: 100, idealWidth: 170, maxWidth: 170)
+            .help("Filter this folder: type words, or #red / tag:red for tags")
             .background(Color.primary.opacity(filterFocused ? 0.1 : 0.06), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Settings.shared.theme.accentColor.opacity(filterFocused ? 0.8 : 0), lineWidth: 1.5))
             .animation(.easeOut(duration: 0.15), value: filterFocused)
             if model.viewMode == .icons {
                 Slider(value: Binding(get: { model.zoom }, set: { model.setZoom($0) }), in: 32...256).frame(width: 80)
+                    .help("Icon size")
                     .transition(.opacity)
             }
             HStack(spacing: 2) {
@@ -205,7 +228,7 @@ struct StatusBar: View {
             Text(summary)
             if let s = model.status { Text("\u{00B7} " + s).lineLimit(1).transition(.opacity) }
             Spacer()
-            if let free { Text(free) }
+            if let free { Text(free).help("Free space on this drive") }
         }
         .animation(.smooth(duration: 0.2), value: model.status)
         .font(.caption)

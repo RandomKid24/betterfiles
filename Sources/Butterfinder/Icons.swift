@@ -11,7 +11,7 @@ enum Icons {
     static func icon(for item: FileItem) -> NSImage {
         if item.isFolder {
             // A tagged folder takes its tag's colour, like Finder's coloured folders.
-            if let hex = item.tags.lazy.compactMap({ Tags.hex(for: $0) }).first { return tintedFolder(hex) }
+            if Settings.shared.colorFolders, let hex = item.tags.lazy.compactMap({ Tags.hex(for: $0) }).first { return tintedFolder(hex) }
             return cached("folder") { NSWorkspace.shared.icon(for: .folder) }
         }
         if item.isPackage { return cached(item.url.path) { NSWorkspace.shared.icon(forFile: item.url.path) } }

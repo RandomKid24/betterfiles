@@ -44,7 +44,7 @@ struct PreviewPane: View {
                     Text(item.name).font(.headline).lineLimit(2).truncationMode(.middle)
                     Text(item.kind).foregroundStyle(.secondary)
                     if let size = item.size { Text(ByteCountFormatter.string(fromByteCount: size, countStyle: .file)).foregroundStyle(.secondary) }
-                    if let m = item.modified { Text(m.formatted(date: .abbreviated, time: .shortened)).foregroundStyle(.secondary) }
+                    if let m = item.modified { Text(Settings.shared.format(m)).foregroundStyle(.secondary) }
                 }
                 .font(.caption)
                 .textSelection(.enabled)

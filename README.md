@@ -59,7 +59,7 @@ Press **⌘ Space** and start typing.
 </p>
 
 - **List and icon views** with real thumbnails and a smooth zoom slider.
-- **Live preview pane** (Quick Look) for images, PDFs, video, text, code and more. **Space** opens full-size Quick Look.
+- **Live preview pane** (Quick Look) for images, PDFs, video, text, code and more. Drag its edge to resize it, and press **Space** for full-size Quick Look.
 - **Tabs** (`⌘T`) and **dual-pane** (`⌘\`) with `F5` copy / `F6` move to the other pane, or just drag between them.
 - **Finder tags** with colored dots, and **tagged folders take their tag's color**. Right-click to tag, and filter with `#red`.
 - **Compare two folders** (`⌥⌘K`): see what's only on one side and copy the missing files across. Nothing is ever overwritten or deleted.
@@ -67,6 +67,7 @@ Press **⌘ Space** and start typing.
 - **Never destructive:** delete goes to the Trash, and name clashes become `name 2.ext`.
 - **Live updates:** files saved by other apps appear without a refresh; drives appear when plugged in.
 - **Fast:** big copies, pastes and trashes run in the background.
+- **New File**, **Move to… / Copy to…**, and a **Trash** place in the sidebar. Hover anything for a tooltip.
 - **Share** (AirDrop, Messages, Mail…), **Calculate Size** for folders, and **Go to Folder** (`⇧⌘G`).
 - **Cut + Paste moves files** (Explorer-style), plus Duplicate, Make Alias, Compress/Extract, Get Info, Copy Path, Open Terminal Here, Reveal in Finder, Open With.
 - **Bulk rename:** select several files and rename them `Trip 01, Trip 02, …` with a live preview.
@@ -84,7 +85,7 @@ Press **⌘ Space** and start typing.
 
 ### Themes &amp; settings
 
-Eight themes (System, Ocean, Midnight, Violet, Rose, Sunset, Forest, Graphite) in light or dark, plus row density, striped rows, hidden files, folder ordering, trash confirmation and more. Both apps have their own Settings (`⌘,`).
+Eight themes (System, Ocean, Midnight, Violet, Rose, Sunset, Forest, Graphite) in light or dark, plus row density, striped rows, date style, tag dots, folder tinting, single-click open, start folder, hidden files, folder ordering, trash confirmation and more. Both apps have their own Settings (`⌘,`).
 
 <p align="center">
   <img src="docs/images/finder-light.png" alt="Sunset theme in light mode" width="49%">

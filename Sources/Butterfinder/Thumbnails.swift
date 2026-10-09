@@ -11,8 +11,12 @@ enum Thumbnails {
         return c
     }()
 
-    /// Thumbnails are requested, cached and matched to cells at this 32 pt granularity.
-    static func bucket(for size: CGFloat) -> Int { Int(size / 32) * 32 }
+    /// Thumbnails are requested, cached and matched to cells in steps: 32 pt for small icons, 64 pt once they are large
+    /// (fewer sizes means far fewer thumbnail requests while the zoom slider moves).
+    static func bucket(for size: CGFloat) -> Int {
+        let step: CGFloat = size < 128 ? 32 : 64
+        return Int(size / step) * Int(step)
+    }
 
     /// Calls `completion` on the main actor with a real thumbnail if the file has one. Files without a
     /// thumbnail never call back, so the caller's file-type icon stays.

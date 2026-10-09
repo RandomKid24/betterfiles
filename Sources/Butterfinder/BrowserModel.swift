@@ -31,6 +31,7 @@ final class BrowserModel: Identifiable {
     @ObservationIgnored var onOpenInNewTab: (URL) -> Void = { _ in }       // set by the tab
     @ObservationIgnored var onOpenInOtherPane: (URL) -> Void = { _ in }   // set by the tab: marks this pane as the active one
     @ObservationIgnored private var watcher: FolderWatcher?
+    @ObservationIgnored private var zoomSave: DispatchWorkItem?
     @ObservationIgnored private static let undoStack = UndoStack()
     @ObservationIgnored private static var busy = false
 
@@ -75,6 +76,7 @@ final class BrowserModel: Identifiable {
             url = target
             loadFolderPrefs()
             Recents.shared.add(target)
+            Settings.shared.rememberFolder(target)
             selection = []
             pendingSelect = []
             folderSizes = [:]
@@ -197,8 +199,15 @@ final class BrowserModel: Identifiable {
 
     func setZoom(_ value: Double) {
         zoom = min(256, max(32, value))
-        defaults.set(zoom, forKey: "zoom")
-        saveFolderPrefs()
+        // Saving touches the disk, so wait until the slider stops moving (it fires dozens of times a second).
+        zoomSave?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.defaults.set(self.zoom, forKey: "zoom")
+            self.saveFolderPrefs()
+        }
+        zoomSave = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
     }
 
     // MARK: actions
@@ -377,6 +386,29 @@ final class BrowserModel: Identifiable {
         report([outcome], done: "Created folder", failed: "create folder")
         if let dest = outcome.destination { pendingSelect = [dest.lastPathComponent]; pendingRename = dest.lastPathComponent }
         reload()
+    }
+
+    func newFile() {
+        let outcome = FileOps.newFile(in: url)
+        Self.undoStack.recordCreated("new file", [outcome])
+        report([outcome], done: "Created file", failed: "create file")
+        if let dest = outcome.destination { pendingSelect = [dest.lastPathComponent]; pendingRename = dest.lastPathComponent }
+        reload()
+    }
+
+    /// "Move to..." / "Copy to...": pick the destination folder in a sheet.
+    func chooseDestination(copy: Bool) {
+        let urls = selectedItems.map(\.url)
+        guard !urls.isEmpty else { return }
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.directoryURL = url
+        panel.prompt = copy ? "Copy" : "Move"
+        panel.message = (copy ? "Copy " : "Move ") + count(urls.count) + " to:"
+        guard panel.runModal() == .OK, let dest = panel.url else { return }
+        drop(urls, onto: dest, copy: copy)
     }
 
     func rename(_ item: FileItem, to name: String) {

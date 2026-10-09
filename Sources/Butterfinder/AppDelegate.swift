@@ -114,6 +114,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func nextTab() { tabs.step(1) }
     @objc private func prevTab() { tabs.step(-1) }
     @objc private func newFolder() { model.newFolder() }
+    @objc private func newFile() { model.newFile() }
+    @objc private func moveTo() { model.chooseDestination(copy: false) }
+    @objc private func copyTo() { model.chooseDestination(copy: true) }
     @objc private func reload() { model.reload() }
     @objc private func showDetails() { model.setViewMode(.details) }
     @objc private func showIcons() { model.setViewMode(.icons) }
@@ -158,6 +161,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             item("New Folder", #selector(newFolder), "n", mods: [.command, .shift], target: self),
             item("Move to Trash", #selector(trash), "\u{8}", target: self),
             item("Get Info", #selector(getInfo), "i", target: self),
+            item("New File", #selector(newFile), "n", mods: [.command, .option], target: self),
+            item("Move to\u{2026}", #selector(moveTo), target: self),
+            item("Copy to\u{2026}", #selector(copyTo), target: self),
             item("Duplicate", #selector(duplicate), "d", target: self),
             item("Make Alias", #selector(makeAlias), "a", mods: [.command, .control], target: self),
             item("Compress", #selector(compress), target: self),

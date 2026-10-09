@@ -67,6 +67,7 @@ struct DetailsView: NSViewRepresentable {
         table.delegate = c
         table.target = c
         table.doubleAction = #selector(Coordinator.doubleClicked)
+        table.action = #selector(Coordinator.clicked)
         table.onOpen = { [weak model] in model?.openSelection() }
         table.onRename = { [weak c, weak table] in if let table { c?.beginRename(table) } }
         table.onCopy = { [weak model] in model?.copySelection() }
@@ -185,17 +186,21 @@ struct DetailsView: NSViewRepresentable {
                 cell.textField?.delegate = self
                 cell.textField?.alphaValue = item.isHidden ? 0.55 : 1
                 (cell as? NameCell)?.dots.attributedStringValue = TagDots.string(item.tags)
+                cell.toolTip = Tooltips.text(for: item)
             case .created:
-                cell.textField?.stringValue = item.created?.formatted(date: .abbreviated, time: .shortened) ?? ""
+                cell.toolTip = item.created.map { $0.formatted(date: .complete, time: .standard) }
+                cell.textField?.stringValue = item.created.map(Settings.shared.format) ?? ""
                 cell.textField?.textColor = .secondaryLabelColor
             case .modified:
-                cell.textField?.stringValue = item.modified?.formatted(date: .abbreviated, time: .shortened) ?? ""
+                cell.toolTip = item.modified.map { $0.formatted(date: .complete, time: .standard) }
+                cell.textField?.stringValue = item.modified.map(Settings.shared.format) ?? ""
                 cell.textField?.textColor = .secondaryLabelColor
             case .size:
                 cell.textField?.stringValue = (item.size ?? model.folderSizes[item.url.path]).map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) } ?? "\u{2014}"
                 cell.textField?.textColor = .secondaryLabelColor
                 cell.textField?.alignment = .right
             case .kind:
+                cell.toolTip = item.kind
                 cell.textField?.stringValue = item.kind
                 cell.textField?.textColor = .secondaryLabelColor
             }
@@ -288,8 +293,16 @@ struct DetailsView: NSViewRepresentable {
             return true
         }
 
+        /// Single-click mode: one plain click opens the item.
+        @objc func clicked() {
+            guard Settings.shared.singleClickOpen, let table, table.clickedRow >= 0, table.clickedRow < items.count,
+                  NSApp.currentEvent?.modifierFlags.intersection([.command, .shift, .option, .control]).isEmpty ?? true,
+                  table.clickedColumn == table.column(withIdentifier: NSUserInterfaceItemIdentifier(Column.name.rawValue)) else { return }
+            model.open(items[table.clickedRow])
+        }
+
         @objc func doubleClicked() {
-            guard let table, table.clickedRow >= 0, table.clickedRow < items.count else { return }
+            guard !Settings.shared.singleClickOpen, let table, table.clickedRow >= 0, table.clickedRow < items.count else { return }
             model.open(items[table.clickedRow])
         }
 
@@ -329,10 +342,24 @@ enum TagDots {
     /// "●●" in each tag's colour (grey for tags without a standard colour).
     static func string(_ tags: [String]) -> NSAttributedString {
         let out = NSMutableAttributedString()
+        guard MainActor.assumeIsolated({ Settings.shared.showTagDots }) else { return out }
         for t in tags {
             let color = Tags.hex(for: t).map { NSColor(red: CGFloat(($0 >> 16) & 255) / 255, green: CGFloat(($0 >> 8) & 255) / 255, blue: CGFloat($0 & 255) / 255, alpha: 1) } ?? .tertiaryLabelColor
             out.append(NSAttributedString(string: "\u{25CF}", attributes: [.foregroundColor: color, .font: NSFont.systemFont(ofSize: 11)]))
         }
         return out
+    }
+}
+
+/// Hover text for files: where it is, what it is, how big and when it changed.
+enum Tooltips {
+    @MainActor static func text(for item: FileItem) -> String {
+        var lines = [item.url.path]
+        var detail = [item.kind]
+        if let size = item.size { detail.append(ByteCountFormatter.string(fromByteCount: size, countStyle: .file)) }
+        lines.append(detail.joined(separator: " \u{00B7} "))
+        if let m = item.modified { lines.append("Modified " + m.formatted(date: .abbreviated, time: .shortened)) }
+        if !item.tags.isEmpty { lines.append("Tags: " + item.tags.joined(separator: ", ")) }
+        return lines.joined(separator: "\n")
     }
 }

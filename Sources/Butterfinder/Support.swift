@@ -55,6 +55,9 @@ final class Prefs {
     var showPreview = UserDefaults.standard.object(forKey: "showPreview") as? Bool ?? true {
         didSet { UserDefaults.standard.set(showPreview, forKey: "showPreview") }
     }
+    /// Width of the preview pane; dragged with the divider and remembered.
+    var previewWidth = min(520, max(220, UserDefaults.standard.object(forKey: "previewWidth") as? Double ?? 280))
+    func savePreviewWidth() { UserDefaults.standard.set(previewWidth, forKey: "previewWidth") }
 }
 
 /// Folders visited recently, for Go > Recent Folders.

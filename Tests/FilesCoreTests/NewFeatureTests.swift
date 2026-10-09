@@ -119,4 +119,11 @@ final class NewFeatureTests: TempDirTestCase {
         XCTAssertEqual(Sorter.sort(items, by: .modified, ascending: false).map(\.name), ["new-file.txt", "old-folder"])
         XCTAssertEqual(Sorter.sort(items, by: .name, ascending: true).map(\.name), ["old-folder", "new-file.txt"]) // name sort keeps folders on top
     }
+
+    func testNewFileIsNumberedAndEmpty() throws {
+        let a = FileOps.newFile(in: dir), b = FileOps.newFile(in: dir)
+        XCTAssertEqual(a.destination?.lastPathComponent, "untitled.txt")
+        XCTAssertEqual(b.destination?.lastPathComponent, "untitled 2.txt")
+        XCTAssertEqual(try Data(contentsOf: a.destination!).count, 0)
+    }
 }

@@ -15,7 +15,7 @@ final class ContextMenu: NSObject, NSMenuDelegate {
         "Paste": "doc.on.clipboard", "New Folder": "folder.badge.plus", "Extract": "arrow.up.bin", "Compress": "archivebox",
         "Duplicate": "plus.square.on.square", "Make Alias": "link", "Tags": "tag", "Add to Sidebar": "star",
         "Copy Path": "list.clipboard", "Reveal in Finder": "magnifyingglass", "Open in Terminal": "terminal",
-        "Get Info": "info.circle", "Move to Trash": "trash", "Share": "square.and.arrow.up", "Calculate Size": "chart.pie",
+        "Get Info": "info.circle", "Move to Trash": "trash", "Share": "square.and.arrow.up", "New File": "doc.badge.plus", "Move to\u{2026}": "arrowshape.turn.up.right", "Copy to\u{2026}": "plus.rectangle.on.folder", "Calculate Size": "chart.pie",
     ]
 
     static func icon(for title: String) -> NSImage? {
@@ -58,7 +58,7 @@ final class ContextMenu: NSObject, NSMenuDelegate {
             menu.addItem(.separator())
             add("Cut", #selector(cut)); add("Copy", #selector(copyItems))
         }
-        add("Paste", #selector(paste)); menu.addItem(.separator()); add("New Folder", #selector(newFolder))
+        add("Paste", #selector(paste)); menu.addItem(.separator()); add("New Folder", #selector(newFolder)); add("New File", #selector(newFile))
         if !picked.isEmpty {
             menu.addItem(.separator())
             if picked.contains(where: { $0.url.pathExtension.lowercased() == "zip" }) { add("Extract", #selector(extract)) }
@@ -78,6 +78,8 @@ final class ContextMenu: NSObject, NSMenuDelegate {
             }
             tagsItem.submenu = tagsMenu
             menu.addItem(tagsItem)
+            add("Move to\u{2026}", #selector(moveTo))
+            add("Copy to\u{2026}", #selector(copyTo))
             add("Duplicate", #selector(duplicate))
             add("Make Alias", #selector(alias))
             add("Compress", #selector(compress))
@@ -132,6 +134,9 @@ final class ContextMenu: NSObject, NSMenuDelegate {
     @objc private func cut() { model.cutSelection() }
     @objc private func copyItems() { model.copySelection() }
     @objc private func paste() { model.paste() }
+    @objc private func newFile() { model.newFile() }
+    @objc private func moveTo() { model.chooseDestination(copy: false) }
+    @objc private func copyTo() { model.chooseDestination(copy: true) }
     @objc private func newFolder() { model.newFolder() }
     @objc private func trash() { model.trashSelection() }
 }

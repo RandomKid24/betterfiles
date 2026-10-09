@@ -45,7 +45,7 @@ struct AddressBar: View {
                 Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.secondary)
             }
             ForEach(Array(all.suffix(n))) { crumb in
-                Button(crumb.name) { model.navigate(to: crumb.url) }.buttonStyle(.plain).lineLimit(1)
+                Button(crumb.name) { model.navigate(to: crumb.url) }.buttonStyle(.plain).lineLimit(1).help(crumb.url.path)
                 if crumb.url.path != model.url.path {
                     Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.secondary)
                 }

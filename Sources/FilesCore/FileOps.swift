@@ -61,6 +61,14 @@ public enum FileOps {
         }
     }
 
+    /// Creates an empty "untitled.txt" (or "untitled 2.txt", ...) in `folder`.
+    public static func newFile(in folder: URL) -> OpOutcome {
+        let dest = unique("untitled.txt", isFolder: false, in: folder, style: .numbered)
+        return attempt(folder, dest) {
+            guard FileManager.default.createFile(atPath: dest.path, contents: Data()) else { throw FileOpError.toolFailed }
+        }
+    }
+
     /// Creates "New Folder" (or "New Folder 2", ...) in `folder`.
     public static func newFolder(in folder: URL) -> OpOutcome {
         let dest = unique("New Folder", isFolder: true, in: folder, style: .numbered)

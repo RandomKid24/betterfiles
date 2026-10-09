@@ -89,7 +89,7 @@ final class Tab: Identifiable {
 
 @MainActor @Observable
 final class Tabs {
-    private(set) var all: [Tab] = [Tab(start: FileManager.default.homeDirectoryForCurrentUser)]
+    private(set) var all: [Tab] = [Tab(start: Settings.shared.startFolder)]
     private(set) var index = 0
     var current: Tab { all[index] }
 
