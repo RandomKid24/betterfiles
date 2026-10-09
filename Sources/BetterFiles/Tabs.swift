@@ -1,14 +1,56 @@
 import SwiftUI
 import Observation
 
+/// One tab: a folder view, optionally split into two panes.
+@MainActor @Observable
+final class Tab: Identifiable {
+    let primary: BrowserModel
+    private(set) var secondary: BrowserModel?
+    private(set) var secondaryActive = false
+
+    init(start: URL) {
+        primary = BrowserModel(start: start)
+        wire(primary)
+    }
+
+    /// The pane that menu commands act on.
+    var active: BrowserModel { secondaryActive ? (secondary ?? primary) : primary }
+    private var other: BrowserModel? { secondary == nil ? nil : (secondaryActive ? primary : secondary) }
+
+    private func wire(_ m: BrowserModel) {
+        m.onActivate = { [weak self, weak m] in
+            guard let self, let m else { return }
+            self.secondaryActive = (m === self.secondary)
+        }
+    }
+
+    func toggleSplit() {
+        if secondary == nil {
+            let m = BrowserModel(start: primary.url)
+            wire(m)
+            secondary = m
+            secondaryActive = true
+        } else {
+            secondary = nil
+            secondaryActive = false
+        }
+    }
+
+    /// F5 / F6: send the selection to the folder shown in the other pane.
+    func sendToOther(move: Bool) {
+        guard let other else { active.status = "Split the view first (\u{2318}\\)."; return }
+        active.drop(active.selectedItems.map(\.url), onto: other.url, copy: !move)
+    }
+}
+
 @MainActor @Observable
 final class Tabs {
-    private(set) var all: [BrowserModel] = [BrowserModel()]
+    private(set) var all: [Tab] = [Tab(start: FileManager.default.homeDirectoryForCurrentUser)]
     private(set) var index = 0
-    var current: BrowserModel { all[index] }
+    var current: Tab { all[index] }
 
     func new() {
-        all.append(BrowserModel(start: current.url))
+        all.append(Tab(start: current.active.url))
         index = all.count - 1
     }
 
@@ -31,11 +73,12 @@ struct TabBar: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            ForEach(Array(tabs.all.enumerated()), id: \.element.id) { i, m in
+            ForEach(Array(tabs.all.enumerated()), id: \.element.id) { i, tab in
                 let active = i == tabs.index
+                let url = tab.primary.url
                 HStack(spacing: 6) {
-                    Image(systemName: "folder").foregroundStyle(.secondary)
-                    Text(m.url.path == "/" ? "/" : m.url.lastPathComponent).lineLimit(1)
+                    Image(systemName: tab.secondary == nil ? "folder" : "rectangle.split.2x1").foregroundStyle(.secondary)
+                    Text(url.path == "/" ? "/" : url.lastPathComponent).lineLimit(1)
                     Button { tabs.close(i) } label: { Image(systemName: "xmark").font(.system(size: 9, weight: .bold)) }
                         .buttonStyle(.plain)
                         .foregroundStyle(.secondary)

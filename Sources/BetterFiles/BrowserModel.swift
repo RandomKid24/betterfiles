@@ -10,18 +10,25 @@ final class BrowserModel: Identifiable {
     private(set) var visible: [FileItem] = []
     private(set) var version = 0   // bumps whenever `visible` changes, so AppKit views know to reload
     private(set) var message: String?
-    private(set) var status: String?
+    var status: String?
     private(set) var sortColumn: Column
     private(set) var ascending: Bool
     private(set) var viewMode: ViewMode
     private(set) var zoom: Double
-    private(set) var showPreview: Bool
     private(set) var backStack: [URL] = []
     private(set) var forwardStack: [URL] = []
     var selection: Set<URL> = []
     var filter = ""
     var addressFocusToken = 0
     var filterFocusToken = 0
+    var showInfo = false
+    var infoURLs: [URL] = []
+    var showBatchRename = false
+    var batchItems: [FileItem] = []
+    @ObservationIgnored var onActivate: () -> Void = {}   // set by the tab: marks this pane as the active one
+    @ObservationIgnored private var watcher: FolderWatcher?
+    @ObservationIgnored private static let undoStack = UndoStack()
+    @ObservationIgnored private static var busy = false
 
     @ObservationIgnored var pendingRename: URL?   // set by newFolder; the active view starts renaming it once it appears
     @ObservationIgnored private var items: [FileItem] = []
@@ -38,9 +45,11 @@ final class BrowserModel: Identifiable {
         ascending = d.object(forKey: "ascending") as? Bool ?? true
         viewMode = ViewMode(rawValue: d.string(forKey: "viewMode") ?? "") ?? .details
         zoom = d.object(forKey: "zoom") as? Double ?? 96
-        showPreview = d.object(forKey: "showPreview") as? Bool ?? true
         reload()
+        watch()
     }
+
+    var showPreview: Bool { Prefs.shared.showPreview }
 
     var canGoBack: Bool { !backStack.isEmpty }
     var canGoForward: Bool { !forwardStack.isEmpty }
@@ -61,8 +70,22 @@ final class BrowserModel: Identifiable {
             status = nil
             items = []; visible = []; message = nil
             version += 1
+            watch()
         }
         reload()
+    }
+
+    private func watch() {
+        watcher = FolderWatcher(url: url) { [weak self] in self?.externalChange() }
+    }
+
+    /// Something else changed this folder. Wait if the user is typing so a reload can't disturb an edit.
+    private func externalChange() {
+        if NSApp.keyWindow?.firstResponder is NSText {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.externalChange() }
+        } else {
+            reload()
+        }
     }
 
     /// Called by the launcher: show `path` (a folder), or with `select` its folder with it highlighted.
@@ -149,10 +172,7 @@ final class BrowserModel: Identifiable {
         defaults.set(mode.rawValue, forKey: "viewMode")
     }
 
-    func togglePreview() {
-        showPreview.toggle()
-        defaults.set(showPreview, forKey: "showPreview")
-    }
+    func togglePreview() { Prefs.shared.showPreview.toggle() }
 
     func setZoom(_ value: Double) {
         zoom = min(256, max(32, value))
@@ -185,31 +205,85 @@ final class BrowserModel: Identifiable {
         status = "Cut \(count(urls.count)). Paste to move."
     }
 
+    /// Runs slow file work off the main thread so the window never freezes. One job at a time.
+    private func background(_ working: String, _ work: @escaping () -> [OpOutcome], done: @escaping ([OpOutcome]) -> Void) {
+        guard !Self.busy else { status = "Still working\u{2026}"; return }
+        Self.busy = true
+        status = working
+        Task.detached {
+            let out = work()
+            await MainActor.run {
+                Self.busy = false
+                done(out)
+                self.reload()
+            }
+        }
+    }
+
+    /// A paste either moved things (sources are gone) or copied them (sources remain).
+    private func recordPaste(_ out: [OpOutcome]) {
+        let fm = FileManager.default
+        Self.undoStack.recordMoves("paste", out.filter { !fm.fileExists(atPath: $0.source.path) })
+        Self.undoStack.recordCreated("paste", out.filter { fm.fileExists(atPath: $0.source.path) })
+    }
+
     func paste() {
-        let outcomes = clipboard.paste(into: url)
-        if outcomes.isEmpty { status = "Nothing to paste."; return }
-        report(outcomes, done: "Pasted \(count(outcomes.count))", failed: "paste")
-        reload()
+        let target = url
+        let clip = clipboard
+        background("Pasting\u{2026}", { clip.paste(into: target) }) { out in
+            if out.isEmpty { self.status = "Nothing to paste."; return }
+            self.recordPaste(out)
+            self.report(out, done: "Pasted \(self.count(out.count))", failed: "paste")
+        }
     }
 
     func trashSelection() {
         let urls = selectedItems.map(\.url)
         guard !urls.isEmpty else { return }
-        report(FileOps.trash(urls), done: "Moved \(count(urls.count)) to the Trash", failed: "move to the Trash")
-        reload()
+        background("Moving to the Trash\u{2026}", { FileOps.trash(urls) }) { out in
+            Self.undoStack.recordMoves("move to Trash", out)
+            self.report(out, done: "Moved \(self.count(urls.count)) to the Trash", failed: "move to the Trash")
+        }
+    }
+
+    func drop(_ urls: [URL], onto folder: URL, copy: Bool) {
+        guard !urls.isEmpty else { return }
+        background(copy ? "Copying\u{2026}" : "Moving\u{2026}", { copy ? FileOps.copy(urls, to: folder) : FileOps.move(urls, to: folder) }) { out in
+            if copy { Self.undoStack.recordCreated("copy", out) } else { Self.undoStack.recordMoves("move", out) }
+            self.report(out, done: (copy ? "Copied " : "Moved ") + self.count(urls.count) + " to " + folder.lastPathComponent,
+                        failed: copy ? "copy" : "move")
+        }
+    }
+
+    func compress() {
+        let urls = selectedItems.map(\.url)
+        guard !urls.isEmpty else { return }
+        background("Compressing\u{2026}", { [Archive.compress(urls)] }) { out in
+            Self.undoStack.recordCreated("compress", out)
+            if let dest = out.first?.destination { self.selection = [dest] }
+            self.report(out, done: "Created \(out.first?.destination?.lastPathComponent ?? "archive")", failed: "compress")
+        }
+    }
+
+    func extract() {
+        let zips = selectedItems.map(\.url).filter { $0.pathExtension.lowercased() == "zip" }
+        guard !zips.isEmpty else { return }
+        background("Extracting\u{2026}", { zips.map(Archive.extract) }) { out in
+            Self.undoStack.recordCreated("extract", out)
+            self.report(out, done: "Extracted \(self.count(zips.count))", failed: "extract")
+        }
     }
 
     func quickLook() { QuickLook.shared.toggle(selectedItems.map(\.url)) }
 
-    func drop(_ urls: [URL], onto folder: URL, copy: Bool) {
-        guard !urls.isEmpty else { return }
-        let out = copy ? FileOps.copy(urls, to: folder) : FileOps.move(urls, to: folder)
-        report(out, done: (copy ? "Copied " : "Moved ") + count(urls.count) + " to " + folder.lastPathComponent, failed: copy ? "copy" : "move")
+    func undo() {
+        status = Self.undoStack.undo() ?? "Nothing to undo."
         reload()
     }
 
     func newFolder() {
         let outcome = FileOps.newFolder(in: url)
+        Self.undoStack.recordCreated("new folder", [outcome])
         report([outcome], done: "Created folder", failed: "create folder")
         if let dest = outcome.destination { selection = [dest]; pendingRename = dest }
         reload()
@@ -217,9 +291,51 @@ final class BrowserModel: Identifiable {
 
     func rename(_ item: FileItem, to name: String) {
         let outcome = FileOps.rename(item.url, to: name)
+        Self.undoStack.recordMoves("rename", [outcome])
         report([outcome], done: "Renamed", failed: "rename")
         if let dest = outcome.destination { selection = [dest] }
         reload()
+    }
+
+    func applyBatchRename(base: String, start: Int) {
+        let plan = BatchRename.plan(batchItems.map(\.url), base: base, start: start)
+        let out = plan.map { FileOps.rename($0.url, to: $0.newName) }
+        Self.undoStack.recordMoves("rename", out)
+        report(out, done: "Renamed \(count(out.count))", failed: "rename")
+        selection = Set(out.compactMap(\.destination))
+        reload()
+    }
+
+    // MARK: small helpers (paths, Terminal, sidebar, info)
+
+    func copyPath() {
+        let paths = (selection.isEmpty ? [url] : selectedItems.map(\.url)).map(\.path)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(paths.joined(separator: "\n"), forType: .string)
+        status = paths.count == 1 ? "Copied path" : "Copied \(paths.count) paths"
+    }
+
+    func openTerminal() {
+        let folder = selectedItems.count == 1 && selectedItems[0].isFolder ? selectedItems[0].url : url
+        NSWorkspace.shared.open([folder], withApplicationAt: URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app"),
+                                configuration: NSWorkspace.OpenConfiguration())
+    }
+
+    func addToSidebar() {
+        let folders = selectedItems.filter(\.isFolder)
+        (folders.isEmpty ? [FileItem(url: url, isFolder: true)] : folders).forEach { Favorites.shared.add($0.url) }
+        status = "Added to the sidebar"
+    }
+
+    func getInfo() {
+        infoURLs = selection.isEmpty ? [url] : selectedItems.map(\.url)
+        showInfo = true
+    }
+
+    func beginBatchRename() {
+        guard selectedItems.count > 1 else { return }
+        batchItems = selectedItems
+        showBatchRename = true
     }
 
     private func count(_ n: Int) -> String { n == 1 ? "1 item" : "\(n) items" }

@@ -4,7 +4,7 @@ import SwiftUI
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let tabs = Tabs()
-    private var model: BrowserModel { tabs.current }
+    private var model: BrowserModel { tabs.current.active }
     private var window: NSWindow!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -48,6 +48,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if NSApp.keyWindow?.firstResponder is NSText { return } // Cmd+Delete belongs to the text field while editing
         model.trashSelection()
     }
+    @objc private func undo() {
+        // Text fields keep their own Cmd+Z while editing.
+        if NSApp.keyWindow?.firstResponder is NSText { NSApp.sendAction(Selector(("undo:")), to: nil, from: nil) } else { model.undo() }
+    }
+    @objc private func split() { tabs.current.toggleSplit() }
+    @objc private func copyToOther() { tabs.current.sendToOther(move: false) }
+    @objc private func moveToOther() { tabs.current.sendToOther(move: true) }
+    @objc private func compress() { model.compress() }
+    @objc private func getInfo() { model.getInfo() }
+    @objc private func copyPath() { model.copyPath() }
+    @objc private func terminal() { model.openTerminal() }
     @objc private func newTab() { tabs.new() }
     @objc private func closeTab() { if !tabs.close() { window.performClose(nil) } }
     @objc private func nextTab() { tabs.step(1) }
@@ -94,9 +105,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .separator(),
             item("New Folder", #selector(newFolder), "n", mods: [.command, .shift], target: self),
             item("Move to Trash", #selector(trash), "\u{8}", target: self),
+            item("Get Info", #selector(getInfo), "i", target: self),
+            item("Compress", #selector(compress), target: self),
+            .separator(),
+            item("Copy Path", #selector(copyPath), "c", mods: [.command, .option], target: self),
+            item("Open Terminal Here", #selector(terminal), "t", mods: [.command, .option], target: self),
+            .separator(),
             item("Reload", #selector(reload), "r", target: self),
         ])
         add("Edit", [
+            item("Undo", #selector(undo), "z", target: self),
+            .separator(),
             item("Cut", #selector(NSText.cut(_:)), "x"),
             item("Copy", #selector(NSText.copy(_:)), "c"),
             item("Paste", #selector(NSText.paste(_:)), "v"),
@@ -105,6 +124,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         add("View", [
             item("Details", #selector(showDetails), "1", target: self),
             item("Icons", #selector(showIcons), "2", target: self),
+            item("Split View", #selector(split), "\\", target: self),
+            item("Copy to Other Pane", #selector(copyToOther), String(UnicodeScalar(NSF5FunctionKey)!), mods: [], target: self),
+            item("Move to Other Pane", #selector(moveToOther), String(UnicodeScalar(NSF6FunctionKey)!), mods: [], target: self),
             item("Preview Pane", #selector(togglePreview), "p", mods: [.command, .shift], target: self),
         ])
         add("Go", [

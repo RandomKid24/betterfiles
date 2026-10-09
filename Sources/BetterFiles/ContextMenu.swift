@@ -13,16 +13,35 @@ final class ContextMenu: NSObject, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         func add(_ title: String, _ action: Selector) { menu.addItem(withTitle: title, action: action, keyEquivalent: "").target = self }
-        if !model.selection.isEmpty {
-            add("Open", #selector(open)); add("Rename", #selector(doRename)); menu.addItem(.separator())
+        let picked = model.selectedItems
+        if !picked.isEmpty {
+            add("Open", #selector(open))
+            add(picked.count > 1 ? "Rename \(picked.count) Items\u{2026}" : "Rename", #selector(doRename))
+            menu.addItem(.separator())
             add("Cut", #selector(cut)); add("Copy", #selector(copyItems))
         }
         add("Paste", #selector(paste)); menu.addItem(.separator()); add("New Folder", #selector(newFolder))
-        if !model.selection.isEmpty { menu.addItem(.separator()); add("Move to Trash", #selector(trash)) }
+        if !picked.isEmpty {
+            menu.addItem(.separator())
+            if picked.contains(where: { $0.url.pathExtension.lowercased() == "zip" }) { add("Extract", #selector(extract)) }
+            add("Compress", #selector(compress))
+            if picked.contains(where: \.isFolder) { add("Add to Sidebar", #selector(addToSidebar)) }
+            menu.addItem(.separator())
+        }
+        add("Copy Path", #selector(copyPath))
+        add("Open in Terminal", #selector(terminal))
+        add("Get Info", #selector(info))
+        if !picked.isEmpty { menu.addItem(.separator()); add("Move to Trash", #selector(trash)) }
     }
 
     @objc private func open() { model.openSelection() }
-    @objc private func doRename() { rename() }
+    @objc private func doRename() { if model.selection.count > 1 { model.beginBatchRename() } else { rename() } }
+    @objc private func extract() { model.extract() }
+    @objc private func compress() { model.compress() }
+    @objc private func addToSidebar() { model.addToSidebar() }
+    @objc private func copyPath() { model.copyPath() }
+    @objc private func terminal() { model.openTerminal() }
+    @objc private func info() { model.getInfo() }
     @objc private func cut() { model.cutSelection() }
     @objc private func copyItems() { model.copySelection() }
     @objc private func paste() { model.paste() }

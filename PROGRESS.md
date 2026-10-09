@@ -28,6 +28,11 @@ Two pieces, built one at a time, each with its own spec and plan.
 - Files: right-click menu, New Folder, Delete to Trash, preview pane (Quick Look), Space for Quick Look, drag and drop, tabs, folder fade.
 - `run.sh` starts dev builds detached; `package.sh` installs both `.app`s into ~/Applications.
 
+### Big feature round (2026-10-09)
+- Files: Undo (Cmd+Z), live folder updates, background copy/trash/paste, favorites in the sidebar, dual pane (Cmd+\\, F5/F6), Get Info (Cmd+I), bulk rename, zip/unzip, Copy Path, Open Terminal Here, app icons.
+- Launcher: own file index (no 300 cap), calculator and unit conversion, `clip` clipboard history, web search fallback, Option+Return copy path, Shift+Return Terminal, Cmd+Backspace trash.
+- Not possible: macOS refuses to let an app become the default for folders.
+
 ## Run
 
 Launcher: untick Spotlight's shortcut (System Settings > Keyboard > Keyboard Shortcuts > Spotlight), then `swift run BetterLauncher`.

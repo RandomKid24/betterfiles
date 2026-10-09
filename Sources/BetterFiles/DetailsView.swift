@@ -10,6 +10,9 @@ final class FileTableView: NSTableView {
     var onPaste: (() -> Void)?
     var onTrash: (() -> Void)?
     var onQuickLook: (() -> Void)?
+    var onActivate: (() -> Void)?
+
+    override func mouseDown(with event: NSEvent) { onActivate?(); super.mouseDown(with: event) }
 
     override func keyDown(with event: NSEvent) {
         switch event.keyCode {
@@ -67,6 +70,7 @@ struct DetailsView: NSViewRepresentable {
         table.onCut = { [weak model] in model?.cutSelection() }
         table.onPaste = { [weak model] in model?.paste() }
         table.onTrash = { [weak model] in model?.trashSelection() }
+        table.onActivate = { [weak model] in model?.onActivate() }
         table.onQuickLook = { [weak model] in model?.quickLook() }
         table.registerForDraggedTypes([.fileURL])
         table.setDraggingSourceOperationMask([.move, .copy], forLocal: true)

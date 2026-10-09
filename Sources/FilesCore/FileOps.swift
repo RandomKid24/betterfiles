@@ -1,13 +1,14 @@
 import Foundation
 
 public enum FileOpError: LocalizedError, Equatable {
-    case intoItself, invalidName, exists
+    case intoItself, invalidName, exists, toolFailed
 
     public var errorDescription: String? {
         switch self {
         case .intoItself: return "a folder can't be moved or copied into itself"
         case .invalidName: return "that isn't a valid name"
         case .exists: return "an item with that name already exists"
+        case .toolFailed: return "the archive tool failed"
         }
     }
 }
@@ -20,7 +21,7 @@ public struct OpOutcome {
 }
 
 public enum FileOps {
-    private enum Style { case numbered, copy }
+    enum Style { case numbered, copy }
 
     /// Moves each item into `folder`. Never overwrites. One failure does not stop the others.
     public static func move(_ urls: [URL], to folder: URL) -> [OpOutcome] {
@@ -97,7 +98,7 @@ public enum FileOps {
         return f == s || f.hasPrefix(s + "/")
     }
 
-    private static func unique(_ name: String, isFolder: Bool, in folder: URL, style: Style) -> URL {
+    static func unique(_ name: String, isFolder: Bool, in folder: URL, style: Style) -> URL {
         let fm = FileManager.default
         let ns = name as NSString
         let ext = isFolder ? "" : ns.pathExtension

@@ -12,6 +12,9 @@ final class ZoomableCollectionView: NSCollectionView {
     var onSelectionChanged: (() -> Void)?
     var onTrash: (() -> Void)?
     var onQuickLook: (() -> Void)?
+    var onActivate: (() -> Void)?
+
+    override func mouseDown(with event: NSEvent) { onActivate?(); super.mouseDown(with: event) }
 
     // Right-clicking an unselected icon selects it first, like Finder.
     override func menu(for event: NSEvent) -> NSMenu? {
@@ -132,6 +135,7 @@ struct IconView: NSViewRepresentable {
         cv.onCopy = { [weak model] in model?.copySelection() }
         cv.onCut = { [weak model] in model?.cutSelection() }
         cv.onPaste = { [weak model] in model?.paste() }
+        cv.onActivate = { [weak model] in model?.onActivate() }
         cv.onQuickLook = { [weak model] in model?.quickLook() }
         cv.registerForDraggedTypes([.fileURL])
         cv.setDraggingSourceOperationMask([.move, .copy], forLocal: true)

@@ -18,28 +18,32 @@ enum Icons {
 }
 
 struct Row: View {
-    let candidate: Candidate
+    let row: LRow
     let selected: Bool
-    let index: Int
     @State private var icon: NSImage?
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(nsImage: icon ?? Icons.cached(candidate.path) ?? NSImage())
-                .resizable()
-                .frame(width: 30, height: 30)
-                .scaleEffect(selected ? 1.1 : 1)
-                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: selected)
+            Group {
+                if let symbol = row.symbol {
+                    Image(systemName: symbol).font(.system(size: 18)).foregroundStyle(Color.accentColor)
+                } else {
+                    Image(nsImage: icon ?? row.path.flatMap(Icons.cached) ?? NSImage()).resizable()
+                }
+            }
+            .frame(width: 30, height: 30)
+            .scaleEffect(selected ? 1.1 : 1)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: selected)
             VStack(alignment: .leading, spacing: 1) {
-                Text(candidate.name).font(.system(size: 14, weight: .medium)).lineLimit(1)
-                Text(candidate.parent).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                Text(row.title).font(.system(size: 14, weight: .medium)).lineLimit(1)
+                Text(row.subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer()
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
         .contentShape(Rectangle())
-        .task(id: candidate.path) { icon = await Icons.load(candidate.path) }
+        .task(id: row.path) { if let p = row.path { icon = await Icons.load(p) } }
     }
 }
 
@@ -63,15 +67,27 @@ struct LauncherView: View {
                     .focused($focused)
                     .onSubmit { model.openSelected() }
                     .onChange(of: model.text) { model.textChanged() }
+                    // Attached to the field itself so these chords aren't swallowed as text editing.
+                    .onKeyPress(.return, phases: .down) { press in
+                        if press.modifiers.contains(.command) { model.openSelected(reveal: true); return .handled }
+                        if press.modifiers.contains(.option) { model.copyPathOfSelected(); return .handled }
+                        if press.modifiers.contains(.shift) { model.openSelectedInTerminal(); return .handled }
+                        return .ignored
+                    }
+                    .onKeyPress(.delete, phases: .down) { press in
+                        guard press.modifiers.contains(.command) else { return .ignored }
+                        model.trashSelected()
+                        return .handled
+                    }
             }
             .padding(.horizontal, 22)
             .frame(height: 64)
 
-            if !model.results.isEmpty {
+            if !model.rows.isEmpty {
                 Divider().padding(.horizontal, 16).transition(.opacity)
                 VStack(spacing: 2) {
-                    ForEach(Array(model.results.enumerated()), id: \.element.path) { i, c in
-                        Row(candidate: c, selected: i == model.selected, index: i)
+                    ForEach(Array(model.rows.enumerated()), id: \.element.id) { i, row in
+                        Row(row: row, selected: i == model.selected)
                             .background {
                                 // One pill shared by all rows: it glides to the selected row instead of blinking.
                                 if i == model.selected {
@@ -87,13 +103,14 @@ struct LauncherView: View {
                 }
                 .padding(8)
                 .animation(.spring(response: 0.28, dampingFraction: 0.82), value: model.selected)
-                HStack(spacing: 14) {
-                    Label("Open", systemImage: "return")
-                    Label("Show in Files", systemImage: "command")
+                HStack(spacing: 12) {
+                    Text("\u{21A9} Open")
+                    Text("\u{2318}\u{21A9} Show in Files")
+                    Text("\u{2325}\u{21A9} Copy path")
+                    Text("\u{21E7}\u{21A9} Terminal")
+                    Text("\u{2318}\u{232B} Trash")
                     Spacer()
-                    Text("\u{2191}\u{2193} to move")
                 }
-                .labelStyle(.titleAndIcon)
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .padding(.horizontal, 20)
@@ -110,17 +127,12 @@ struct LauncherView: View {
         .opacity(model.visible ? 1 : 0)
         // Springy on the way in, quick ease on the way out.
         // The results block grows/collapses smoothly; per-keystroke count changes deliberately don't animate.
-        .animation(.smooth(duration: 0.24), value: model.results.isEmpty)
+        .animation(.smooth(duration: 0.24), value: model.rows.isEmpty)
         .animation(model.visible ? .spring(response: 0.38, dampingFraction: 0.72) : .easeIn(duration: 0.14), value: model.visible)
         .padding(40) // room for the shadow; the panel itself is transparent
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onKeyPress(.downArrow) { model.move(1); return .handled }
         .onKeyPress(.upArrow) { model.move(-1); return .handled }
-        .onKeyPress(.return, phases: .down) { press in
-            guard press.modifiers.contains(.command) else { return .ignored }
-            model.openSelected(reveal: true)
-            return .handled
-        }
         .onKeyPress(.escape) { model.onDismiss(); return .handled }
         .onChange(of: model.visible) { if model.visible { focused = true } }
     }

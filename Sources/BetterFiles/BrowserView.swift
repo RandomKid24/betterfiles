@@ -11,7 +11,7 @@ struct BrowserView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
             // .id rebuilds the AppKit views per tab so each keeps its own folder, selection and scroll state.
-            BrowserContent(model: tabs.current, onNewTab: { tabs.new() }).id(tabs.current.id)
+            TabContent(tab: tabs.current, onNewTab: { tabs.new() }).id(tabs.current.id)
                 .transition(.opacity)
         }
         .animation(.smooth(duration: 0.22), value: tabs.all.count)
@@ -19,46 +19,74 @@ struct BrowserView: View {
     }
 }
 
-struct BrowserContent: View {
-    @Bindable var model: BrowserModel
+struct TabContent: View {
+    let tab: Tab
     let onNewTab: () -> Void
 
     var body: some View {
+        let active = tab.active
         NavigationSplitView {
-            SidebarView(model: model, url: model.url)
+            SidebarView(model: active, url: active.url, favorites: Favorites.shared.urls)
                 .navigationSplitViewColumnWidth(min: 180, ideal: 230, max: 340)
         } detail: {
             HStack(spacing: 0) {
-            VStack(spacing: 0) {
-                TopBar(model: model, onNewTab: onNewTab)
-                Divider()
-                ZStack {
-                    switch model.viewMode {
-                    case .details:
-                        DetailsView(model: model, version: model.version, selection: model.selection,
-                                    sort: model.sortColumn, ascending: model.ascending)
-                    case .icons:
-                        IconView(model: model, version: model.version, selection: model.selection, zoom: model.zoom)
-                    }
-                    if let m = model.displayMessage {
-                        Text(m).foregroundStyle(.secondary).multilineTextAlignment(.center).padding().allowsHitTesting(false)
-                            .transition(.opacity.combined(with: .scale(scale: 0.96)))
-                    }
+                Pane(model: tab.primary, onNewTab: onNewTab, highlight: tab.secondary != nil && !tab.secondaryActive)
+                if let second = tab.secondary {
+                    Divider()
+                    Pane(model: second, onNewTab: onNewTab, highlight: tab.secondaryActive)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
-                .animation(.smooth(duration: 0.2), value: model.viewMode)
-                .animation(.smooth(duration: 0.2), value: model.displayMessage)
-                Divider()
-                StatusBar(model: model)
+                if active.showPreview {
+                    Divider()
+                    PreviewPane(items: active.selectedItems, onClose: { active.togglePreview() }).frame(width: 300)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
             }
-            if model.showPreview {
-                Divider()
-                PreviewPane(items: model.selectedItems, onClose: { model.togglePreview() }).frame(width: 300)
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
-            }
-            }
-            .animation(.smooth(duration: 0.3), value: model.showPreview)
+            .animation(.smooth(duration: 0.3), value: active.showPreview)
+            .animation(.smooth(duration: 0.3), value: tab.secondary == nil)
         }
         .frame(minWidth: 950, minHeight: 400)
+        .sheet(isPresented: Binding(get: { active.showInfo }, set: { active.showInfo = $0 })) {
+            InfoView(urls: active.infoURLs) { active.showInfo = false }
+        }
+        .sheet(isPresented: Binding(get: { active.showBatchRename }, set: { active.showBatchRename = $0 })) {
+            BatchRenameView(items: active.batchItems, onApply: { active.applyBatchRename(base: $0, start: $1) }) { active.showBatchRename = false }
+        }
+    }
+}
+
+struct Pane: View {
+    @Bindable var model: BrowserModel
+    let onNewTab: () -> Void
+    let highlight: Bool
+
+    var body: some View {
+        VStack(spacing: 0) {
+            TopBar(model: model, onNewTab: onNewTab)
+                .simultaneousGesture(TapGesture().onEnded { model.onActivate() })
+            Divider()
+            ZStack {
+                switch model.viewMode {
+                case .details:
+                    DetailsView(model: model, version: model.version, selection: model.selection,
+                                sort: model.sortColumn, ascending: model.ascending)
+                case .icons:
+                    IconView(model: model, version: model.version, selection: model.selection, zoom: model.zoom)
+                }
+                if let m = model.displayMessage {
+                    Text(m).foregroundStyle(.secondary).multilineTextAlignment(.center).padding().allowsHitTesting(false)
+                        .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                }
+            }
+            .animation(.smooth(duration: 0.2), value: model.viewMode)
+            .animation(.smooth(duration: 0.2), value: model.displayMessage)
+            Divider()
+            StatusBar(model: model)
+        }
+        .overlay(alignment: .top) {
+            Rectangle().fill(Color.accentColor).frame(height: 2).opacity(highlight ? 1 : 0)
+        }
+        .animation(.smooth(duration: 0.2), value: highlight)
     }
 }
 

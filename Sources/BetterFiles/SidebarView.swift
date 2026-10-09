@@ -6,6 +6,7 @@ final class Node: NSObject {
     let url: URL
     let name: String
     private(set) var children: [Node]?   // nil until first expanded
+    var isFavorite = false
 
     init(url: URL, name: String) {
         self.url = url
@@ -25,6 +26,7 @@ final class Node: NSObject {
 struct SidebarView: NSViewRepresentable {
     let model: BrowserModel
     let url: URL
+    let favorites: [URL]   // read by the parent's body so SwiftUI calls updateNSView when they change
 
     func makeCoordinator() -> Coordinator { Coordinator(model) }
 
@@ -40,6 +42,7 @@ struct SidebarView: NSViewRepresentable {
         outline.dataSource = c
         outline.delegate = c
         outline.registerForDraggedTypes([.fileURL])
+        outline.menu = c.removeMenu()
         c.outline = outline
 
         let scroll = NSScrollView()
@@ -49,32 +52,75 @@ struct SidebarView: NSViewRepresentable {
     }
 
     func updateNSView(_ scroll: NSScrollView, context: Context) {
-        context.coordinator.reveal(url)
+        let c = context.coordinator
+        c.model = model   // the active pane can change
+        if c.favoritesInTree != favorites { c.rebuild() }
+        c.reveal(url)
     }
 
     @MainActor
-    final class Coordinator: NSObject, NSOutlineViewDataSource, NSOutlineViewDelegate {
-        let model: BrowserModel
+    final class Coordinator: NSObject, NSOutlineViewDataSource, NSOutlineViewDelegate, NSMenuDelegate {
+        var model: BrowserModel
         weak var outline: NSOutlineView?
-        private let roots: [Node]
+        private var roots: [Node] = []
+        private(set) var favoritesInTree: [URL] = []
         private var syncing = false
         private var lastRevealed: String?
 
         init(_ model: BrowserModel) {
             self.model = model
+            super.init()
+            roots = makeRoots()
+            NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didMountNotification, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.rebuild() }
+            }
+            NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didUnmountNotification, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.rebuild() }
+            }
+        }
+
+        private func makeRoots() -> [Node] {
             let fm = FileManager.default
             let home = fm.homeDirectoryForCurrentUser
             var nodes = [Node(url: home, name: "Home")]
-            for (folder, title) in [("Desktop", "Desktop"), ("Documents", "Documents"), ("Downloads", "Downloads")] {
-                nodes.append(Node(url: home.appendingPathComponent(folder), name: title))
+            for folder in ["Desktop", "Documents", "Downloads"] {
+                nodes.append(Node(url: home.appendingPathComponent(folder), name: folder))
             }
             nodes.append(Node(url: URL(fileURLWithPath: "/Applications"), name: "Applications"))
+            favoritesInTree = Favorites.shared.urls
+            for f in favoritesInTree {
+                let n = Node(url: f, name: f.lastPathComponent)
+                n.isFavorite = true
+                nodes.append(n)
+            }
             let volumes = fm.mountedVolumeURLs(includingResourceValuesForKeys: [.volumeNameKey], options: [.skipHiddenVolumes]) ?? []
             for v in volumes {
                 let name = (try? v.resourceValues(forKeys: [.volumeNameKey]))?.volumeName ?? v.lastPathComponent
                 nodes.append(Node(url: v, name: name))
             }
-            roots = nodes
+            return nodes
+        }
+
+        /// Favorites or drives changed.
+        func rebuild() {
+            roots = makeRoots()
+            lastRevealed = nil
+            outline?.reloadData()
+        }
+
+        // Right-click a favorite to unpin it.
+        func removeMenu() -> NSMenu { let m = NSMenu(); m.delegate = self; return m }
+
+        func menuNeedsUpdate(_ menu: NSMenu) {
+            menu.removeAllItems()
+            guard let ov = outline, ov.clickedRow >= 0, let node = ov.item(atRow: ov.clickedRow) as? Node, node.isFavorite else { return }
+            let item = menu.addItem(withTitle: "Remove from Sidebar", action: #selector(removeFavorite(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = node.url
+        }
+
+        @objc private func removeFavorite(_ sender: NSMenuItem) {
+            if let url = sender.representedObject as? URL { Favorites.shared.remove(url) }
         }
 
         // MARK: data source
