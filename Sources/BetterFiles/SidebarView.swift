@@ -39,6 +39,7 @@ struct SidebarView: NSViewRepresentable {
         outline.rowSizeStyle = .default
         outline.dataSource = c
         outline.delegate = c
+        outline.registerForDraggedTypes([.fileURL])
         c.outline = outline
 
         let scroll = NSScrollView()
@@ -125,6 +126,18 @@ struct SidebarView: NSViewRepresentable {
             guard !syncing, let ov = outline, ov.selectedRow >= 0, let node = ov.item(atRow: ov.selectedRow) as? Node else { return }
             lastRevealed = node.url.standardizedFileURL.path // we are already there; no need to re-reveal
             model.navigate(to: node.url)
+        }
+
+        func outlineView(_ ov: NSOutlineView, validateDrop info: NSDraggingInfo, proposedItem item: Any?, proposedChildIndex index: Int) -> NSDragOperation {
+            guard let node = item as? Node else { return [] }
+            ov.setDropItem(node, dropChildIndex: NSOutlineViewDropOnItemIndex)
+            return dropOperation
+        }
+
+        func outlineView(_ ov: NSOutlineView, acceptDrop info: NSDraggingInfo, item: Any?, childIndex index: Int) -> Bool {
+            guard let node = item as? Node else { return false }
+            model.drop(droppedURLs(info), onto: node.url, copy: NSEvent.modifierFlags.contains(.option))
+            return true
         }
 
         // MARK: follow the current folder

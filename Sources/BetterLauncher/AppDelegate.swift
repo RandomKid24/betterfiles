@@ -1,4 +1,5 @@
 import AppKit
+import ServiceManagement
 import LauncherCore
 
 @MainActor
@@ -31,8 +32,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let show = NSMenuItem(title: "Show launcher", action: #selector(showLauncher), keyEquivalent: "")
         show.target = self
         menu.addItem(show)
+        if Bundle.main.bundlePath.hasSuffix(".app") {
+            let login = NSMenuItem(title: "Launch at login", action: #selector(toggleLogin(_:)), keyEquivalent: "")
+            login.target = self
+            login.state = SMAppService.mainApp.status == .enabled ? .on : .off
+            menu.addItem(login)
+        }
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         item.menu = menu
+    }
+
+    @objc private func toggleLogin(_ sender: NSMenuItem) {
+        let service = SMAppService.mainApp
+        if service.status == .enabled { try? service.unregister() } else { try? service.register() }
+        sender.state = service.status == .enabled ? .on : .off
     }
 
     @objc private func showLauncher() { controller.show() }

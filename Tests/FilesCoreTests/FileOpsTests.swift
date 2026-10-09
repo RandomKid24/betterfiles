@@ -26,6 +26,11 @@ final class FileOpsTests: TempDirTestCase {
         XCTAssertEqual(read(f), "x")
     }
 
+    func testNewFolderIsNumbered() {
+        XCTAssertEqual(FileOps.newFolder(in: dir).destination?.lastPathComponent, "New Folder")
+        XCTAssertEqual(FileOps.newFolder(in: dir).destination?.lastPathComponent, "New Folder 2")
+    }
+
     func testCopyIntoSameFolderMakesCopyNames() throws {
         let f = try touch("f.txt", "x")
         let first = FileOps.copy([f], to: dir)

@@ -8,11 +8,15 @@ final class FileTableView: NSTableView {
     var onCopy: (() -> Void)?
     var onCut: (() -> Void)?
     var onPaste: (() -> Void)?
+    var onTrash: (() -> Void)?
+    var onQuickLook: (() -> Void)?
 
     override func keyDown(with event: NSEvent) {
         switch event.keyCode {
         case 36, 76: onOpen?()   // Return, keypad Enter
         case 120: onRename?()    // F2
+        case 49: onQuickLook?()  // Space
+        case 51, 117: onTrash?() // Delete / forward delete; the Trash is recoverable
         default: super.keyDown(with: event)
         }
     }
@@ -62,9 +66,17 @@ struct DetailsView: NSViewRepresentable {
         table.onCopy = { [weak model] in model?.copySelection() }
         table.onCut = { [weak model] in model?.cutSelection() }
         table.onPaste = { [weak model] in model?.paste() }
+        table.onTrash = { [weak model] in model?.trashSelection() }
+        table.onQuickLook = { [weak model] in model?.quickLook() }
+        table.registerForDraggedTypes([.fileURL])
+        table.setDraggingSourceOperationMask([.move, .copy], forLocal: true)
+        table.setDraggingSourceOperationMask(.copy, forLocal: false)
+        c.ctx.rename = { [weak c, weak table] in if let table { c?.beginRename(table) } }
+        table.menu = c.ctx.build()
         c.table = table
 
         let scroll = NSScrollView()
+        scroll.wantsLayer = true
         scroll.documentView = table
         scroll.hasVerticalScroller = true
         return scroll
@@ -81,13 +93,20 @@ struct DetailsView: NSViewRepresentable {
         weak var table: FileTableView?
         private var items: [FileItem] = []
         private var lastVersion = -1
+        private var lastURL: URL?
         private var syncing = false
 
-        init(_ model: BrowserModel) { self.model = model }
+        let ctx: ContextMenu
+        init(_ model: BrowserModel) { self.model = model; ctx = ContextMenu(model) }
 
         func update(_ table: FileTableView, version: Int, selection: Set<URL>, sort: Column, ascending: Bool) {
             syncing = true
             defer { syncing = false }
+            if version != lastVersion && (items.isEmpty || model.url != lastURL) {
+                lastURL = model.url
+                let t = CATransition(); t.type = .fade; t.duration = 0.18
+                table.enclosingScrollView?.layer?.add(t, forKey: "fade")
+            }
             if version != lastVersion {
                 items = model.visible
                 lastVersion = version
@@ -99,6 +118,12 @@ struct DetailsView: NSViewRepresentable {
             }
             let rows = IndexSet(items.indices.filter { selection.contains(items[$0].url) })
             if table.selectedRowIndexes != rows { table.selectRowIndexes(rows, byExtendingSelection: false) }
+            // New Folder: start renaming it as soon as the listing shows it.
+            if let url = model.pendingRename, let row = items.firstIndex(where: { $0.url == url }) {
+                model.pendingRename = nil
+                table.scrollRowToVisible(row)
+                DispatchQueue.main.async { [weak self, weak table] in if let table { self?.beginRename(table) } }
+            }
         }
 
         // MARK: data source / delegate
@@ -167,6 +192,25 @@ struct DetailsView: NSViewRepresentable {
 
         func tableView(_ tableView: NSTableView, typeSelectStringFor tableColumn: NSTableColumn?, row: Int) -> String? {
             row < items.count ? items[row].name : nil
+        }
+
+        func tableView(_ tv: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? {
+            row < items.count ? items[row].url as NSURL : nil
+        }
+
+        func tableView(_ tv: NSTableView, validateDrop info: NSDraggingInfo, proposedRow row: Int,
+                       proposedDropOperation op: NSTableView.DropOperation) -> NSDragOperation {
+            // Only folders accept drops; aim at the row under the cursor even when the table proposes "between rows".
+            let hovered = tv.row(at: tv.convert(info.draggingLocation, from: nil))
+            guard hovered >= 0, hovered < items.count, items[hovered].isFolder, !items[hovered].isPackage else { return [] }
+            tv.setDropRow(hovered, dropOperation: .on)
+            return dropOperation
+        }
+
+        func tableView(_ tv: NSTableView, acceptDrop info: NSDraggingInfo, row: Int, dropOperation op: NSTableView.DropOperation) -> Bool {
+            guard row >= 0, row < items.count else { return false }
+            model.drop(droppedURLs(info), onto: items[row].url, copy: NSEvent.modifierFlags.contains(.option))
+            return true
         }
 
         @objc func doubleClicked() {

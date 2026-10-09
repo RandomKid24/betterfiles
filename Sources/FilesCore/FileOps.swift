@@ -51,6 +51,12 @@ public enum FileOps {
         return attempt(url, dest) { try FileManager.default.moveItem(at: url, to: dest) }
     }
 
+    /// Creates "New Folder" (or "New Folder 2", ...) in `folder`.
+    public static func newFolder(in folder: URL) -> OpOutcome {
+        let dest = unique("New Folder", isFolder: true, in: folder, style: .numbered)
+        return attempt(folder, dest) { try FileManager.default.createDirectory(at: dest, withIntermediateDirectories: false) }
+    }
+
     /// Moves to the Trash. There is deliberately no permanent delete.
     public static func trash(_ urls: [URL]) -> [OpOutcome] {
         urls.map { src in

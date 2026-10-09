@@ -12,6 +12,8 @@ final class Search: NSObject {
     override init() {
         super.init()
         query.searchScopes = [NSMetadataQueryUserHomeScope, "/Applications", "/System/Applications"]
+        // Most recently used first, so the 300-hit cap keeps what you actually touch instead of arbitrary files.
+        query.sortDescriptors = [NSSortDescriptor(key: NSMetadataItemLastUsedDateKey, ascending: false)]
         // Default batching is 1s, which is what made typing feel laggy.
         query.notificationBatchingInterval = 0.05
         let nc = NotificationCenter.default

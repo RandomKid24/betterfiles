@@ -5,7 +5,7 @@ import Observation
 enum ViewMode: String { case details, icons }
 
 @MainActor @Observable
-final class BrowserModel {
+final class BrowserModel: Identifiable {
     private(set) var url: URL
     private(set) var visible: [FileItem] = []
     private(set) var version = 0   // bumps whenever `visible` changes, so AppKit views know to reload
@@ -15,6 +15,7 @@ final class BrowserModel {
     private(set) var ascending: Bool
     private(set) var viewMode: ViewMode
     private(set) var zoom: Double
+    private(set) var showPreview: Bool
     private(set) var backStack: [URL] = []
     private(set) var forwardStack: [URL] = []
     var selection: Set<URL> = []
@@ -22,9 +23,12 @@ final class BrowserModel {
     var addressFocusToken = 0
     var filterFocusToken = 0
 
+    @ObservationIgnored var pendingRename: URL?   // set by newFolder; the active view starts renaming it once it appears
     @ObservationIgnored private var items: [FileItem] = []
     @ObservationIgnored private var loadID = 0
-    @ObservationIgnored private let clipboard = FileClipboard(pasteboard: SystemPasteboard())
+    // Shared so Cut in one tab can Paste in another.
+    @ObservationIgnored private static let sharedClipboard = FileClipboard(pasteboard: SystemPasteboard())
+    @ObservationIgnored private var clipboard: FileClipboard { Self.sharedClipboard }
     @ObservationIgnored private let defaults = UserDefaults.standard
 
     init(start: URL = FileManager.default.homeDirectoryForCurrentUser) {
@@ -34,6 +38,7 @@ final class BrowserModel {
         ascending = d.object(forKey: "ascending") as? Bool ?? true
         viewMode = ViewMode(rawValue: d.string(forKey: "viewMode") ?? "") ?? .details
         zoom = d.object(forKey: "zoom") as? Double ?? 96
+        showPreview = d.object(forKey: "showPreview") as? Bool ?? true
         reload()
     }
 
@@ -58,6 +63,17 @@ final class BrowserModel {
             version += 1
         }
         reload()
+    }
+
+    /// Called by the launcher: show `path` (a folder), or with `select` its folder with it highlighted.
+    func show(path: String, select: Bool) {
+        let target = URL(fileURLWithPath: path)
+        if select {
+            navigate(to: target.deletingLastPathComponent())
+            selection = [target.standardizedFileURL]
+        } else {
+            navigate(to: target)
+        }
     }
 
     func goBack() {
@@ -133,6 +149,11 @@ final class BrowserModel {
         defaults.set(mode.rawValue, forKey: "viewMode")
     }
 
+    func togglePreview() {
+        showPreview.toggle()
+        defaults.set(showPreview, forKey: "showPreview")
+    }
+
     func setZoom(_ value: Double) {
         zoom = min(256, max(32, value))
         defaults.set(zoom, forKey: "zoom")
@@ -175,6 +196,22 @@ final class BrowserModel {
         let urls = selectedItems.map(\.url)
         guard !urls.isEmpty else { return }
         report(FileOps.trash(urls), done: "Moved \(count(urls.count)) to the Trash", failed: "move to the Trash")
+        reload()
+    }
+
+    func quickLook() { QuickLook.shared.toggle(selectedItems.map(\.url)) }
+
+    func drop(_ urls: [URL], onto folder: URL, copy: Bool) {
+        guard !urls.isEmpty else { return }
+        let out = copy ? FileOps.copy(urls, to: folder) : FileOps.move(urls, to: folder)
+        report(out, done: (copy ? "Copied " : "Moved ") + count(urls.count) + " to " + folder.lastPathComponent, failed: copy ? "copy" : "move")
+        reload()
+    }
+
+    func newFolder() {
+        let outcome = FileOps.newFolder(in: url)
+        report([outcome], done: "Created folder", failed: "create folder")
+        if let dest = outcome.destination { selection = [dest]; pendingRename = dest }
         reload()
     }
 

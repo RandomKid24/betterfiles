@@ -3,12 +3,13 @@ import SwiftUI
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private let model = BrowserModel()
+    private let tabs = Tabs()
+    private var model: BrowserModel { tabs.current }
     private var window: NSWindow!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMenu()
-        let hosting = NSHostingController(rootView: BrowserView(model: model))
+        let hosting = NSHostingController(rootView: BrowserView(tabs: tabs))
         hosting.sizingOptions = [] // the window decides its size, not the SwiftUI content
         window = NSWindow(contentViewController: hosting)
         window.setContentSize(NSSize(width: 1100, height: 700))
@@ -16,6 +17,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.setFrameAutosaveName("BetterFilesMain")
         window.makeKeyAndOrderFront(nil)
         NSApp.activate()
+
+        // Paths from the launcher: as an argument when we were started for it, as a notification when already running.
+        let args = CommandLine.arguments.dropFirst()
+        if let first = args.first {
+            if first == "--select", args.count > 1 { model.show(path: args[args.startIndex + 1], select: true) }
+            else { model.show(path: first, select: false) }
+        }
+        DistributedNotificationCenter.default().addObserver(forName: Notification.Name("com.betterfiles.open"), object: nil, queue: .main) { [weak self] n in
+            guard let path = n.userInfo?["path"] as? String else { return }
+            let select = n.userInfo?["select"] as? Bool ?? false
+            MainActor.assumeIsolated {
+                self?.model.show(path: path, select: select)
+                self?.window.makeKeyAndOrderFront(nil)
+                NSApp.activate()
+            }
+        }
+    }
+
+    // "Open With > BetterFiles" on a folder.
+    func application(_ app: NSApplication, open urls: [URL]) {
+        if let url = urls.first { model.show(path: url.path, select: false) }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
@@ -26,9 +48,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if NSApp.keyWindow?.firstResponder is NSText { return } // Cmd+Delete belongs to the text field while editing
         model.trashSelection()
     }
+    @objc private func newTab() { tabs.new() }
+    @objc private func closeTab() { if !tabs.close() { window.performClose(nil) } }
+    @objc private func nextTab() { tabs.step(1) }
+    @objc private func prevTab() { tabs.step(-1) }
+    @objc private func newFolder() { model.newFolder() }
     @objc private func reload() { model.reload() }
     @objc private func showDetails() { model.setViewMode(.details) }
     @objc private func showIcons() { model.setViewMode(.icons) }
+    @objc private func togglePreview() { model.togglePreview() }
     @objc private func back() { model.goBack() }
     @objc private func forward() { model.goForward() }
     @objc private func up() { model.goUp() }
@@ -58,6 +86,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             item("Quit BetterFiles", #selector(NSApplication.terminate(_:)), "q"),
         ])
         add("File", [
+            item("New Tab", #selector(newTab), "t", target: self),
+            item("Close Tab", #selector(closeTab), "w", target: self),
+            item("Next Tab", #selector(nextTab), "]", mods: [.command, .shift], target: self),
+            item("Previous Tab", #selector(prevTab), "[", mods: [.command, .shift], target: self),
+            .separator(),
+            item("New Folder", #selector(newFolder), "n", mods: [.command, .shift], target: self),
             item("Move to Trash", #selector(trash), "\u{8}", target: self),
             item("Reload", #selector(reload), "r", target: self),
         ])
@@ -70,6 +104,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         add("View", [
             item("Details", #selector(showDetails), "1", target: self),
             item("Icons", #selector(showIcons), "2", target: self),
+            item("Preview Pane", #selector(togglePreview), "p", mods: [.command, .shift], target: self),
         ])
         add("Go", [
             item("Back", #selector(back), "[", target: self),

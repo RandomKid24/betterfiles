@@ -2,15 +2,29 @@ import SwiftUI
 import FilesCore
 
 struct BrowserView: View {
+    let tabs: Tabs
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if tabs.all.count > 1 { TabBar(tabs: tabs); Divider() }
+            // .id rebuilds the AppKit views per tab so each keeps its own folder, selection and scroll state.
+            BrowserContent(model: tabs.current, onNewTab: { tabs.new() }).id(tabs.current.id)
+        }
+    }
+}
+
+struct BrowserContent: View {
     @Bindable var model: BrowserModel
+    let onNewTab: () -> Void
 
     var body: some View {
         NavigationSplitView {
             SidebarView(model: model, url: model.url)
                 .navigationSplitViewColumnWidth(min: 180, ideal: 230, max: 340)
         } detail: {
+            HStack(spacing: 0) {
             VStack(spacing: 0) {
-                TopBar(model: model)
+                TopBar(model: model, onNewTab: onNewTab)
                 Divider()
                 ZStack {
                     switch model.viewMode {
@@ -27,13 +41,19 @@ struct BrowserView: View {
                 Divider()
                 StatusBar(model: model)
             }
+            if model.showPreview {
+                Divider()
+                PreviewPane(items: model.selectedItems, onClose: { model.togglePreview() }).frame(width: 300)
+            }
+            }
         }
-        .frame(minWidth: 800, minHeight: 400)
+        .frame(minWidth: 950, minHeight: 400)
     }
 }
 
 struct TopBar: View {
     @Bindable var model: BrowserModel
+    let onNewTab: () -> Void
     @FocusState private var filterFocused: Bool
 
     var body: some View {
@@ -52,6 +72,9 @@ struct TopBar: View {
                 Slider(value: Binding(get: { model.zoom }, set: { model.setZoom($0) }), in: 32...256)
                     .frame(width: 110)
             }
+            Button { onNewTab() } label: { Image(systemName: "plus.square.on.square") }.help("New tab (\u{2318}T)")
+            Button { model.togglePreview() } label: { Image(systemName: "sidebar.right") }
+                .help("Preview pane (\u{21E7}\u{2318}P)")
             Picker("View", selection: Binding(get: { model.viewMode }, set: { model.setViewMode($0) })) {
                 Image(systemName: "list.bullet").tag(ViewMode.details)
                 Image(systemName: "square.grid.2x2").tag(ViewMode.icons)

@@ -10,6 +10,17 @@ final class ZoomableCollectionView: NSCollectionView {
     var onCut: (() -> Void)?
     var onPaste: (() -> Void)?
     var onSelectionChanged: (() -> Void)?
+    var onTrash: (() -> Void)?
+    var onQuickLook: (() -> Void)?
+
+    // Right-clicking an unselected icon selects it first, like Finder.
+    override func menu(for event: NSEvent) -> NSMenu? {
+        if let p = indexPathForItem(at: convert(event.locationInWindow, from: nil)), !selectionIndexPaths.contains(p) {
+            selectionIndexPaths = [p]
+            onSelectionChanged?()
+        }
+        return super.menu(for: event)
+    }
 
     override func scrollWheel(with event: NSEvent) {
         if event.modifierFlags.contains(.command) { onZoom?(event.scrollingDeltaY * 2) } else { super.scrollWheel(with: event) }
@@ -21,6 +32,8 @@ final class ZoomableCollectionView: NSCollectionView {
         switch event.keyCode {
         case 36, 76: onOpen?()
         case 120: onRename?()
+        case 49: onQuickLook?()
+        case 51, 117: onTrash?()
         default: super.keyDown(with: event)
         }
     }
@@ -119,6 +132,13 @@ struct IconView: NSViewRepresentable {
         cv.onCopy = { [weak model] in model?.copySelection() }
         cv.onCut = { [weak model] in model?.cutSelection() }
         cv.onPaste = { [weak model] in model?.paste() }
+        cv.onQuickLook = { [weak model] in model?.quickLook() }
+        cv.registerForDraggedTypes([.fileURL])
+        cv.setDraggingSourceOperationMask([.move, .copy], forLocal: true)
+        cv.setDraggingSourceOperationMask(.copy, forLocal: false)
+        cv.onTrash = { [weak model] in model?.trashSelection() }
+        c.ctx.rename = { [weak c, weak cv] in if let cv { c?.beginRename(cv) } }
+        cv.menu = c.ctx.build()
         cv.onSelectionChanged = { [weak c, weak cv] in if let c, let cv { c.pushSelection(cv) } }
         let double = NSClickGestureRecognizer(target: c, action: #selector(Coordinator.doubleClicked(_:)))
         double.numberOfClicksRequired = 2
@@ -127,6 +147,7 @@ struct IconView: NSViewRepresentable {
         c.collection = cv
 
         let scroll = NSScrollView()
+        scroll.wantsLayer = true
         scroll.documentView = cv
         scroll.hasVerticalScroller = true
         return scroll
@@ -143,16 +164,23 @@ struct IconView: NSViewRepresentable {
         weak var collection: ZoomableCollectionView?
         private var items: [FileItem] = []
         private var lastVersion = -1
+        private var lastURL: URL?
         private var lastZoom = 0.0
         private var lastBucket = 0
         private var syncing = false
 
-        init(_ model: BrowserModel) { self.model = model }
+        let ctx: ContextMenu
+        init(_ model: BrowserModel) { self.model = model; ctx = ContextMenu(model) }
 
         func update(_ cv: ZoomableCollectionView, version: Int, selection: Set<URL>, zoom: Double) {
             syncing = true
             defer { syncing = false }
             var needsReload = false
+            if version != lastVersion && (items.isEmpty || model.url != lastURL) {
+                lastURL = model.url
+                let t = CATransition(); t.type = .fade; t.duration = 0.18
+                cv.enclosingScrollView?.layer?.add(t, forKey: "fade")
+            }
             if version != lastVersion { items = model.visible; lastVersion = version; needsReload = true }
             if zoom != lastZoom {
                 lastZoom = zoom
@@ -176,6 +204,11 @@ struct IconView: NSViewRepresentable {
             if needsReload { cv.reloadData() }
             let wanted = Set(items.indices.filter { selection.contains(items[$0].url) }.map { IndexPath(item: $0, section: 0) })
             if cv.selectionIndexPaths != wanted { cv.selectionIndexPaths = wanted }
+            if let url = model.pendingRename, let i = items.firstIndex(where: { $0.url == url }) {
+                model.pendingRename = nil
+                cv.scrollToItems(at: [IndexPath(item: i, section: 0)], scrollPosition: .centeredVertically)
+                DispatchQueue.main.async { [weak self, weak cv] in if let cv { self?.beginRename(cv) } }
+            }
         }
 
         func collectionView(_ cv: NSCollectionView, numberOfItemsInSection section: Int) -> Int { items.count }
@@ -185,6 +218,27 @@ struct IconView: NSViewRepresentable {
             cell.configure(items[indexPath.item], size: CGFloat(lastZoom))
             cell.textField?.delegate = self
             return cell
+        }
+
+        func collectionView(_ cv: NSCollectionView, pasteboardWriterForItemAt indexPath: IndexPath) -> NSPasteboardWriting? {
+            indexPath.item < items.count ? items[indexPath.item].url as NSURL : nil
+        }
+
+        func collectionView(_ cv: NSCollectionView, validateDrop info: NSDraggingInfo,
+                            proposedIndexPath path: AutoreleasingUnsafeMutablePointer<NSIndexPath>,
+                            dropOperation op: UnsafeMutablePointer<NSCollectionView.DropOperation>) -> NSDragOperation {
+            guard let hit = cv.indexPathForItem(at: cv.convert(info.draggingLocation, from: nil)), hit.item < items.count,
+                  items[hit.item].isFolder, !items[hit.item].isPackage else { return [] }
+            path.pointee = hit as NSIndexPath
+            op.pointee = .on
+            return dropOperation
+        }
+
+        func collectionView(_ cv: NSCollectionView, acceptDrop info: NSDraggingInfo, indexPath: IndexPath,
+                            dropOperation: NSCollectionView.DropOperation) -> Bool {
+            guard indexPath.item < items.count else { return false }
+            model.drop(droppedURLs(info), onto: items[indexPath.item].url, copy: NSEvent.modifierFlags.contains(.option))
+            return true
         }
 
         func collectionView(_ cv: NSCollectionView, didSelectItemsAt indexPaths: Set<IndexPath>) { pushSelection(cv) }

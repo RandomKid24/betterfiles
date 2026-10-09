@@ -10,6 +10,7 @@ final class Model {
     var visible = false
     var onDismiss: () -> Void = {}
 
+    @ObservationIgnored private var searchTask: Task<Void, Never>?
     @ObservationIgnored private let search = Search()
     @ObservationIgnored private let usage: Usage
     @ObservationIgnored private var apps: [Candidate] = []
@@ -29,8 +30,15 @@ final class Model {
     }
 
     func textChanged() {
-        search.update(text)
-        rerank(keepSelection: false)
+        rerank(keepSelection: false) // instant: apps + history
+        // Restarting the Spotlight query is the expensive part; wait out fast typing / held backspace.
+        searchTask?.cancel()
+        let q = text
+        searchTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(70))
+            guard !Task.isCancelled else { return }
+            self?.search.update(q)
+        }
     }
 
     func move(_ delta: Int) {
@@ -38,13 +46,22 @@ final class Model {
         selected = (selected + delta + results.count) % results.count
     }
 
-    func openSelected() {
+    /// Dismisses first so the panel never waits on the target app; the open happens off the main thread.
+    /// Folders open in BetterFiles; `reveal` shows the item's folder there with the item selected.
+    func openSelected(reveal: Bool = false) {
         guard results.indices.contains(selected) else { return }
-        let c = results[selected]
-        // Only record and hide when the open succeeded (file may have moved since indexing).
-        if NSWorkspace.shared.open(URL(fileURLWithPath: c.path)) {
-            usage.record(path: c.path)
-            onDismiss()
+        let path = results[selected].path
+        usage.record(path: path)
+        onDismiss()
+        Task.detached {
+            var isDir: ObjCBool = false
+            let exists = FileManager.default.fileExists(atPath: path, isDirectory: &isDir)
+            let isFolder = exists && isDir.boolValue && !path.hasSuffix(".app")
+            if reveal || isFolder {
+                FilesBridge.show(path, select: reveal)
+            } else {
+                NSWorkspace.shared.open(URL(fileURLWithPath: path))
+            }
         }
     }
 

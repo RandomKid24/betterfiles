@@ -23,6 +23,11 @@ Two pieces, built one at a time, each with its own spec and plan.
 - 61 unit tests pass in total (21 launcher + 40 files).
 - Spec: `docs/superpowers/specs/2026-10-08-files-stage-a-design.md`. Plan: `docs/superpowers/plans/2026-10-08-files-stage-a.md`.
 
+### Polish round (2026-10-09)
+- Launcher: sliding highlight, blur-in open, async icons, debounced search, instant dismiss; folders open in BetterFiles, Cmd+Return shows the item in Files; results ordered by last used; launch at login.
+- Files: right-click menu, New Folder, Delete to Trash, preview pane (Quick Look), Space for Quick Look, drag and drop, tabs, folder fade.
+- `run.sh` starts dev builds detached; `package.sh` installs both `.app`s into ~/Applications.
+
 ## Run
 
 Launcher: untick Spotlight's shortcut (System Settings > Keyboard > Keyboard Shortcuts > Spotlight), then `swift run BetterLauncher`.
