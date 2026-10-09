@@ -38,7 +38,8 @@ Press **⌘ Space** and start typing.
 - **Calculator and unit conversion.** `12*(7+5)`, `2^10`, `5 km to mi`, `100c in f` — Return copies the answer.
 - **Clipboard history.** Type `clip` to see what you copied recently (kept in memory only, and password-manager items are skipped).
 - **Web search** when nothing matches.
-- **Right-click any result** for Open, Show in Butterfinder, Reveal in Finder, Open With, Copy Path, Copy Name, Open in Terminal, Remove from Recents and Move to Trash.
+- **Direct actions for addresses:** type an IP (`192.168.1.1:8080`), `localhost:3000` or `github.com/…` and press Return to open it in your browser.
+- **Right-click any result** (with icons) for Open, Show in Butterfinder, Reveal in Finder, Open With, Copy Path, Copy Name, Open in Terminal, Remove from Recents and Move to Trash.
 - **Keyboard first:** `⌘1`–`⌘9` open the first nine results, `⌥↩` copies the path, `⇧↩` opens Terminal, `⌘⌫` trashes.
 - **Silky animations:** a highlight that glides between rows, blur-in on open, instant dismiss.
 
@@ -57,7 +58,7 @@ Press **⌘ Space** and start typing.
 - **List and icon views** with real thumbnails and a smooth zoom slider.
 - **Live preview pane** (Quick Look) for images, PDFs, video, text, code and more. **Space** opens full-size Quick Look.
 - **Tabs** (`⌘T`) and **dual-pane** (`⌘\`) with `F5` copy / `F6` move to the other pane, or just drag between them.
-- **Finder tags** shown as colored dots; right-click to tag. The filter box matches tag names too.
+- **Finder tags** with colored dots, and **tagged folders take their tag's color**. Right-click to tag; the filter box matches tag names too.
 - **Compare two folders** (`⌥⌘K`): see what's only on one side and copy the missing files across. Nothing is ever overwritten or deleted.
 - **Undo (`⌘Z`)** for move, rename, trash, paste, new folder, zip and bulk rename.
 - **Never destructive:** delete goes to the Trash, and name clashes become `name 2.ext`.
@@ -67,6 +68,10 @@ Press **⌘ Space** and start typing.
 - **Bulk rename:** select several files and rename them `Trip 01, Trip 02, …` with a live preview.
 - **Per-folder memory** for view, sort and zoom; choose your columns by right-clicking the header.
 - **Favorites** in the sidebar, **Recent Folders**, and an address bar with breadcrumbs.
+
+<p align="center">
+  <img src="docs/images/finder-folders.png" alt="Color-tagged folders" width="880">
+</p>
 
 <p align="center">
   <img src="docs/images/finder-icons.png" alt="Icon view with the Ocean theme" width="49%">
@@ -88,7 +93,7 @@ Eight themes (System, Ocean, Midnight, Violet, Rose, Sunset, Forest, Graphite) i
 
 ### Download (easiest)
 
-1. Grab **`Butterlight-Butterfinder-1.0.0.dmg`** from the [latest release](https://github.com/RandomKid24/betterfiles/releases/latest).
+1. Grab **`Butterlight-Butterfinder-1.0.1.dmg`** from the [latest release](https://github.com/RandomKid24/betterfiles/releases/latest).
 2. Drag **Butterlight** and **Butterfinder** into **Applications** and open them.
 3. **The first launch will be blocked** — the apps aren't notarized by Apple yet. Either:
    - open **System Settings → Privacy &amp; Security**, scroll down and click **Open Anyway**, or
@@ -111,7 +116,7 @@ git clone https://github.com/RandomKid24/betterfiles.git
 cd betterfiles
 ./package.sh          # builds and installs both apps into ~/Applications
 ./run.sh              # or: run the unpackaged dev builds in the background
-./dist.sh 1.0.0       # builds a universal .dmg and .zip into dist/
+./dist.sh 1.0.1       # builds a universal .dmg and .zip into dist/
 swift test            # runs the unit tests
 ```
 

@@ -195,23 +195,23 @@ struct RowMenu: View {
 
     var body: some View {
         if row.path != nil {
-            Button("Open") { model.open(row) }
-            Button("Show in Butterfinder") { model.open(row, reveal: true) }
-            Button("Reveal in Finder") { model.revealInFinder(row) }
-            Menu("Open With") {
+            Button { model.open(row) } label: { Label("Open", systemImage: "arrow.up.forward.app") }
+            Button { model.open(row, reveal: true) } label: { Label("Show in Butterfinder", systemImage: "folder") }
+            Button { model.revealInFinder(row) } label: { Label("Reveal in Finder", systemImage: "magnifyingglass") }
+            Menu {
                 ForEach(model.appsFor(row), id: \.self) { app in
                     Button(app.deletingPathExtension().lastPathComponent) { model.openWith(row, app) }
                 }
-            }
+            } label: { Label("Open With", systemImage: "square.grid.2x2") }
             Divider()
-            Button("Copy Path") { model.copyPath(row) }
-            Button("Copy Name") { model.copyName(row) }
-            Button("Open in Terminal") { model.openInTerminal(row) }
+            Button { model.copyPath(row) } label: { Label("Copy Path", systemImage: "list.clipboard") }
+            Button { model.copyName(row) } label: { Label("Copy Name", systemImage: "textformat") }
+            Button { model.openInTerminal(row) } label: { Label("Open in Terminal", systemImage: "terminal") }
             Divider()
-            if model.canForget(row) { Button("Remove from Recents") { model.forget(row) } }
-            Button("Move to Trash", role: .destructive) { model.trash(row) }
+            if model.canForget(row) { Button { model.forget(row) } label: { Label("Remove from Recents", systemImage: "clock.badge.xmark") } }
+            Button(role: .destructive) { model.trash(row) } label: { Label("Move to Trash", systemImage: "trash") }
         } else if row.run != nil {
-            Button("Run") { model.open(row) }
+            Button { model.open(row) } label: { Label("Run", systemImage: "return") }
         }
     }
 }

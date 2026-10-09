@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.1] - 2026-10-09
+
+### Added
+- Butterfinder: tagged folders are drawn in their tag's color.
+- Butterfinder and Butterlight: icons in the right-click menus.
+- Butterlight: type an IP address, `localhost:port`, host:port or a domain to open it directly in the browser.
+
+### Changed
+- Butterlight is lighter: it no longer queries Spotlight on every keystroke once its own index is ready, does no disk work when it opens, and draws its shadow more cheaply. The file index is capped at 150,000 entries and skips more developer build folders.
+- Butterfinder's thumbnail cache is limited to about 48 MB.
+
+### Fixed
+- Butterlight showed two borders around the panel.
+- Butterfinder treated command-line flags as folder paths.
+- The sidebar could be squeezed off-screen; the path bar now fits the available width.
+
 ## [Unreleased]
 
 ### Added

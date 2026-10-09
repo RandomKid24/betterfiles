@@ -9,16 +9,35 @@ final class ContextMenu: NSObject, NSMenuDelegate {
 
     init(_ model: BrowserModel) { self.model = model }
 
+    private static let symbols: [String: String] = [
+        "Open": "arrow.up.forward.app", "Open With": "square.grid.2x2", "Open in New Tab": "plus.square.on.square",
+        "Open in Other Pane": "rectangle.split.2x1", "Rename": "pencil", "Cut": "scissors", "Copy": "doc.on.doc",
+        "Paste": "doc.on.clipboard", "New Folder": "folder.badge.plus", "Extract": "arrow.up.bin", "Compress": "archivebox",
+        "Duplicate": "plus.square.on.square", "Make Alias": "link", "Tags": "tag", "Add to Sidebar": "star",
+        "Copy Path": "list.clipboard", "Reveal in Finder": "magnifyingglass", "Open in Terminal": "terminal",
+        "Get Info": "info.circle", "Move to Trash": "trash",
+    ]
+
+    static func icon(for title: String) -> NSImage? {
+        let key = title.hasPrefix("Rename") ? "Rename" : title
+        return symbols[key].flatMap { NSImage(systemSymbolName: $0, accessibilityDescription: nil) }
+    }
+
     func build() -> NSMenu { let m = NSMenu(); m.delegate = self; return m }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
-        func add(_ title: String, _ action: Selector) { menu.addItem(withTitle: title, action: action, keyEquivalent: "").target = self }
+        func add(_ title: String, _ action: Selector) {
+            let item = menu.addItem(withTitle: title, action: action, keyEquivalent: "")
+            item.target = self
+            item.image = Self.icon(for: title)
+        }
         let picked = model.selectedItems
         if !picked.isEmpty {
             add("Open", #selector(open))
             if picked.allSatisfy({ !$0.isFolder }) {
                 let openWith = NSMenuItem(title: "Open With", action: nil, keyEquivalent: "")
+                openWith.image = Self.icon(for: "Open With")
                 let sub = NSMenu()
                 for app in NSWorkspace.shared.urlsForApplications(toOpen: picked[0].url).prefix(12) {
                     let i = sub.addItem(withTitle: app.deletingPathExtension().lastPathComponent, action: #selector(openWithApp(_:)), keyEquivalent: "")
@@ -44,6 +63,7 @@ final class ContextMenu: NSObject, NSMenuDelegate {
             menu.addItem(.separator())
             if picked.contains(where: { $0.url.pathExtension.lowercased() == "zip" }) { add("Extract", #selector(extract)) }
             let tagsItem = NSMenuItem(title: "Tags", action: nil, keyEquivalent: "")
+            tagsItem.image = Self.icon(for: "Tags")
             let tagsMenu = NSMenu()
             for (name, hex) in Tags.standard {
                 let i = tagsMenu.addItem(withTitle: name, action: #selector(toggleTag(_:)), keyEquivalent: "")
