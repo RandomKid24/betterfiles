@@ -5,26 +5,30 @@ struct BrowserView: View {
     @Bindable var model: BrowserModel
 
     var body: some View {
-        // TEMPORARY (Task 9 replaces this with SidebarView in a NavigationSplitView)
-        VStack(spacing: 0) {
-            TopBar(model: model)
-            Divider()
-            ZStack {
-                switch model.viewMode {
-                case .details:
-                    DetailsView(model: model, version: model.version, selection: model.selection,
-                                sort: model.sortColumn, ascending: model.ascending)
-                case .icons:
-                    IconView(model: model, version: model.version, selection: model.selection, zoom: model.zoom)
+        NavigationSplitView {
+            SidebarView(model: model, url: model.url)
+                .navigationSplitViewColumnWidth(min: 180, ideal: 230, max: 340)
+        } detail: {
+            VStack(spacing: 0) {
+                TopBar(model: model)
+                Divider()
+                ZStack {
+                    switch model.viewMode {
+                    case .details:
+                        DetailsView(model: model, version: model.version, selection: model.selection,
+                                    sort: model.sortColumn, ascending: model.ascending)
+                    case .icons:
+                        IconView(model: model, version: model.version, selection: model.selection, zoom: model.zoom)
+                    }
+                    if let m = model.displayMessage {
+                        Text(m).foregroundStyle(.secondary).multilineTextAlignment(.center).padding().allowsHitTesting(false)
+                    }
                 }
-                if let m = model.displayMessage {
-                    Text(m).foregroundStyle(.secondary).multilineTextAlignment(.center).padding().allowsHitTesting(false)
-                }
+                Divider()
+                StatusBar(model: model)
             }
-            Divider()
-            StatusBar(model: model)
         }
-        .frame(minWidth: 640, minHeight: 360)
+        .frame(minWidth: 800, minHeight: 400)
     }
 }
 
