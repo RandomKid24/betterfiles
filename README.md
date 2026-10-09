@@ -58,7 +58,7 @@ Press **⌘ Space** and start typing.
 - **List and icon views** with real thumbnails and a smooth zoom slider.
 - **Live preview pane** (Quick Look) for images, PDFs, video, text, code and more. **Space** opens full-size Quick Look.
 - **Tabs** (`⌘T`) and **dual-pane** (`⌘\`) with `F5` copy / `F6` move to the other pane, or just drag between them.
-- **Finder tags** with colored dots, and **tagged folders take their tag's color**. Right-click to tag; the filter box matches tag names too.
+- **Finder tags** with colored dots, and **tagged folders take their tag's color**. Right-click to tag, and filter with `#red`.
 - **Compare two folders** (`⌥⌘K`): see what's only on one side and copy the missing files across. Nothing is ever overwritten or deleted.
 - **Undo (`⌘Z`)** for move, rename, trash, paste, new folder, zip and bulk rename.
 - **Never destructive:** delete goes to the Trash, and name clashes become `name 2.ext`.
@@ -93,7 +93,7 @@ Eight themes (System, Ocean, Midnight, Violet, Rose, Sunset, Forest, Graphite) i
 
 ### Download (easiest)
 
-1. Grab **`Butterlight-Butterfinder-1.0.1.dmg`** from the [latest release](https://github.com/RandomKid24/betterfiles/releases/latest).
+1. Grab **`Butterlight-Butterfinder-1.0.2.dmg`** from the [latest release](https://github.com/RandomKid24/betterfiles/releases/latest).
 2. Drag **Butterlight** and **Butterfinder** into **Applications** and open them.
 3. **The first launch will be blocked** — the apps aren't notarized by Apple yet. Either:
    - open **System Settings → Privacy &amp; Security**, scroll down and click **Open Anyway**, or
@@ -116,7 +116,7 @@ git clone https://github.com/RandomKid24/betterfiles.git
 cd betterfiles
 ./package.sh          # builds and installs both apps into ~/Applications
 ./run.sh              # or: run the unpackaged dev builds in the background
-./dist.sh 1.0.1       # builds a universal .dmg and .zip into dist/
+./dist.sh 1.0.2       # builds a universal .dmg and .zip into dist/
 swift test            # runs the unit tests
 ```
 

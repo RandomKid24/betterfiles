@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.2] - 2026-10-09
+
+### Fixed
+- Butterfinder: sorting by date, size or kind no longer groups folders above files, so the newest item is really at the top. Name sort still keeps folders first.
+- Butterfinder: the filter no longer matches Finder tag names by accident (typing "or" showed Orange-tagged files). Use `#red` or `tag:red` to filter by tag.
+
+### Changed
+- Butterfinder: the filter tries your exact phrase first, then any-order words; the status bar shows "N of M items match".
+
 ## [1.0.1] - 2026-10-09
 
 ### Added
