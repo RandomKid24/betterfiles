@@ -111,4 +111,12 @@ final class NewFeatureTests: TempDirTestCase {
         let mixed = [FileItem(url: dir.appendingPathComponent("a report.pdf"), tags: ["Red"]), FileItem(url: dir.appendingPathComponent("b report.pdf"))]
         XCTAssertEqual(Filter.filter(mixed, text: "report #red").map(\.name), ["a report.pdf"])
     }
+
+    func testDateSortMixesFoldersAndFiles() {
+        let old = Date(timeIntervalSince1970: 1_000_000), new = Date(timeIntervalSince1970: 2_000_000)
+        let items = [FileItem(url: dir.appendingPathComponent("old-folder"), isFolder: true, modified: old),
+                     FileItem(url: dir.appendingPathComponent("new-file.txt"), modified: new)]
+        XCTAssertEqual(Sorter.sort(items, by: .modified, ascending: false).map(\.name), ["new-file.txt", "old-folder"])
+        XCTAssertEqual(Sorter.sort(items, by: .name, ascending: true).map(\.name), ["old-folder", "new-file.txt"]) // name sort keeps folders on top
+    }
 }

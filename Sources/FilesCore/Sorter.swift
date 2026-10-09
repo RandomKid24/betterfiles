@@ -5,10 +5,11 @@ public enum Column: String, CaseIterable, Sendable {
 }
 
 public enum Sorter {
-    /// Folders come first by default, in both directions (as in Explorer). Ties always fall back to name ascending.
+    /// When sorting by name, folders come first by default, in both directions. Other columns (date, size, kind)
+    /// mix folders and files so the newest or largest item really is at the top. Ties always fall back to name ascending.
     public static func sort(_ items: [FileItem], by column: Column, ascending: Bool, foldersFirst: Bool = true) -> [FileItem] {
         items.sorted { a, b in
-            if foldersFirst, a.isFolder != b.isFolder { return a.isFolder }
+            if foldersFirst, column == .name, a.isFolder != b.isFolder { return a.isFolder }
             let r = compare(a, b, column)
             if r != .orderedSame { return ascending ? r == .orderedAscending : r == .orderedDescending }
             let n = compareNames(a.name, b.name)
