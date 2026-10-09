@@ -37,6 +37,9 @@ Press **⌘ Space** and start typing.
 - **Instant search.** Apps, files and folders, ranked by match quality and by what you actually open. Backed by its own index of your home folder, so there's no 300-result cap.
 - **Calculator and unit conversion.** `12*(7+5)`, `2^10`, `5 km to mi`, `100c in f` — Return copies the answer.
 - **Clipboard history.** Type `clip` to see what you copied recently (kept in memory only, and password-manager items are skipped).
+- **Search inside files:** `? invoice 2025` finds files by their text.
+- **Web shortcuts:** `g swift tips`, `yt lofi`, `gh repo`, `so error`, `mdn fetch`, `wiki`, `maps`, `npm` and `ddg`.
+- **Quick commands:** `lock`, `sleep`, `dark mode`, `uuid`, `timestamp`, `ip`.
 - **Web search** when nothing matches.
 - **Direct actions for addresses:** type an IP (`192.168.1.1:8080`), `localhost:3000` or `github.com/…` and press Return to open it in your browser.
 - **Right-click any result** (with icons) for Open, Show in Butterfinder, Reveal in Finder, Open With, Copy Path, Copy Name, Open in Terminal, Remove from Recents and Move to Trash.
@@ -64,6 +67,7 @@ Press **⌘ Space** and start typing.
 - **Never destructive:** delete goes to the Trash, and name clashes become `name 2.ext`.
 - **Live updates:** files saved by other apps appear without a refresh; drives appear when plugged in.
 - **Fast:** big copies, pastes and trashes run in the background.
+- **Share** (AirDrop, Messages, Mail…), **Calculate Size** for folders, and **Go to Folder** (`⇧⌘G`).
 - **Cut + Paste moves files** (Explorer-style), plus Duplicate, Make Alias, Compress/Extract, Get Info, Copy Path, Open Terminal Here, Reveal in Finder, Open With.
 - **Bulk rename:** select several files and rename them `Trip 01, Trip 02, …` with a live preview.
 - **Per-folder memory** for view, sort and zoom; choose your columns by right-clicking the header.
@@ -101,7 +105,8 @@ Eight themes (System, Ocean, Midnight, Violet, Rose, Sunset, Forest, Graphite) i
      ```bash
      xattr -dr com.apple.quarantine /Applications/Butterlight.app /Applications/Butterfinder.app
      ```
-4. Turn off Spotlight's own shortcut so **⌘ Space** is free: **System Settings → Keyboard → Keyboard Shortcuts → Spotlight**.
+4. **Give Butterlight file access** so it can see your Documents, Desktop and Downloads: **System Settings → Privacy & Security → Full Disk Access**, then add Butterlight. (Without it, searches miss those folders; Butterlight shows a hint when this happens.)
+5. Turn off Spotlight's own shortcut so **⌘ Space** is free: **System Settings → Keyboard → Keyboard Shortcuts → Spotlight**.
 
 Both apps offer to start at login (Butterfinder starts quietly in the background so folders open instantly).
 

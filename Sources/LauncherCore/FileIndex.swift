@@ -25,26 +25,46 @@ public final class FileIndex: @unchecked Sendable {
         return builtAt.map { Date().timeIntervalSince($0) > seconds } ?? true
     }
 
-    // ponytail: full rescan, capped so memory stays around 100 MB. Use FSEvents for incremental updates if rescans get slow.
-    public func build(root: String, cap: Int = 150_000) {
+    static let protectedFolders: Set<String> = ["Desktop", "Documents", "Downloads"]
+
+    /// Folders people keep their own files in: scanned first, with the most room.
+    static let priority = ["Desktop", "Documents", "Downloads", "Pictures", "Movies", "Music", "Developer", "Projects", "Code", "Sites"]
+
+    // ponytail: full rescan, capped so memory stays around 100 MB. Each top-level folder gets its own limit so one huge
+    // developer folder can't use up the whole index. Use FSEvents for incremental updates if rescans get slow.
+    public func build(root: String, cap: Int = 200_000, perPriority: Int = 60_000, perOther: Int = 25_000) {
         var n: [String] = [], p: [String] = []
-        let url = URL(fileURLWithPath: root)
-        if let e = FileManager.default.enumerator(at: url, includingPropertiesForKeys: [.isDirectoryKey],
-                                                  options: [.skipsHiddenFiles, .skipsPackageDescendants]) {
-            for case let item as URL in e {
-                let name = item.lastPathComponent
-                if Self.skipped.contains(name), (try? item.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true {
-                    e.skipDescendants()
-                    continue
-                }
-                n.append(Ranker.fold(name))
-                p.append(item.path)
-                if n.count >= cap { break }
-            }
+        let fm = FileManager.default
+        let top = ((try? fm.contentsOfDirectory(atPath: root)) ?? []).filter { !$0.hasPrefix(".") }
+        // Folders macOS may hide until the user allows access come last: scanning them can stall on a permission dialog,
+        // and everything before them is already searchable by then.
+        let ordered = (Self.priority.filter(top.contains) + top.filter { !Self.priority.contains($0) && !Self.skipped.contains($0) }.sorted())
+            .sorted { Self.protectedFolders.contains($0) != Self.protectedFolders.contains($1) ? !Self.protectedFolders.contains($0) : false }
+        for name in ordered where n.count < cap {
+            let url = URL(fileURLWithPath: root).appendingPathComponent(name)
+            n.append(Ranker.fold(name)); p.append(url.path)
+            let room = min(Self.priority.contains(name) ? perPriority : perOther, cap - n.count)
+            scan(url, room: room, names: &n, paths: &p)
+            lock.lock(); names = n; paths = p; lock.unlock()   // searchable as soon as each folder is done
         }
         lock.lock()
         names = n; paths = p; builtAt = Date()
         lock.unlock()
+    }
+
+    private func scan(_ dir: URL, room: Int, names n: inout [String], paths p: inout [String]) {
+        var added = 0
+        guard let e = FileManager.default.enumerator(at: dir, includingPropertiesForKeys: [.isDirectoryKey],
+                                                     options: [.skipsHiddenFiles, .skipsPackageDescendants]) else { return }
+        for case let item as URL in e where added < room {
+            let name = item.lastPathComponent
+            if Self.skipped.contains(name), (try? item.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true {
+                e.skipDescendants()
+                continue
+            }
+            n.append(Ranker.fold(name)); p.append(item.path)
+            added += 1
+        }
     }
 
     /// Prefix matches first, then substring matches, up to `limit`.

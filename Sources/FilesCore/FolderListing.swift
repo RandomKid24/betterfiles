@@ -25,4 +25,14 @@ public enum FolderListing {
                 tags: v?.tagNames ?? [])
         }
     }
+
+    /// Just the sub-folders of `url` (no dates, sizes, kinds or tags), for the sidebar tree. Much cheaper than `list`.
+    public static func subfolders(_ url: URL) -> [FileItem] {
+        let keys: [URLResourceKey] = [.isDirectoryKey, .isPackageKey]
+        guard let urls = try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: keys, options: [.skipsHiddenFiles]) else { return [] }
+        return urls.compactMap { u in
+            let v = try? u.resourceValues(forKeys: Set(keys))
+            return v?.isDirectory == true && v?.isPackage != true ? FileItem(url: u, isFolder: true) : nil
+        }
+    }
 }

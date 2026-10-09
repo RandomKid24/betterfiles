@@ -15,7 +15,7 @@ final class ContextMenu: NSObject, NSMenuDelegate {
         "Paste": "doc.on.clipboard", "New Folder": "folder.badge.plus", "Extract": "arrow.up.bin", "Compress": "archivebox",
         "Duplicate": "plus.square.on.square", "Make Alias": "link", "Tags": "tag", "Add to Sidebar": "star",
         "Copy Path": "list.clipboard", "Reveal in Finder": "magnifyingglass", "Open in Terminal": "terminal",
-        "Get Info": "info.circle", "Move to Trash": "trash",
+        "Get Info": "info.circle", "Move to Trash": "trash", "Share": "square.and.arrow.up", "Calculate Size": "chart.pie",
     ]
 
     static func icon(for title: String) -> NSImage? {
@@ -87,7 +87,26 @@ final class ContextMenu: NSObject, NSMenuDelegate {
         add("Copy Path", #selector(copyPath))
         add("Reveal in Finder", #selector(reveal))
         add("Open in Terminal", #selector(terminal))
+        if picked.contains(where: \.isFolder) { add("Calculate Size", #selector(calcSize)) }
         add("Get Info", #selector(info))
+        if !picked.isEmpty {
+            // AirDrop, Messages, Mail ... whatever macOS offers for these files.
+            let urls = picked.map(\.url)
+            let services = NSSharingService.sharingServices(forItems: urls)
+            if !services.isEmpty {
+                let shareItem = NSMenuItem(title: "Share", action: nil, keyEquivalent: "")
+                shareItem.image = Self.icon(for: "Share")
+                let sub = NSMenu()
+                for service in services {
+                    let i = sub.addItem(withTitle: service.menuItemTitle, action: #selector(share(_:)), keyEquivalent: "")
+                    i.target = self
+                    i.image = service.image
+                    i.representedObject = service
+                }
+                shareItem.submenu = sub
+                menu.addItem(shareItem)
+            }
+        }
         if !picked.isEmpty { menu.addItem(.separator()); add("Move to Trash", #selector(trash)) }
     }
 
@@ -105,6 +124,10 @@ final class ContextMenu: NSObject, NSMenuDelegate {
     @objc private func duplicate() { model.duplicate() }
     @objc private func alias() { model.makeAlias() }
     @objc private func reveal() { model.revealInFinder() }
+    @objc private func calcSize() { model.calculateSizes() }
+    @objc private func share(_ i: NSMenuItem) {
+        (i.representedObject as? NSSharingService)?.perform(withItems: model.selectedItems.map(\.url))
+    }
     @objc private func info() { model.getInfo() }
     @objc private func cut() { model.cutSelection() }
     @objc private func copyItems() { model.copySelection() }

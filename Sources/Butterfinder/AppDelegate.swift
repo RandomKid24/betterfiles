@@ -39,13 +39,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             model.show(path: path, select: false)
         }
         // Developer options (used for README screenshots): `--split <folder>` opens the second pane there,
-        // `--open-settings [general|appearance|shortcuts]` opens Settings.
+        // `--open-settings [general|appearance|shortcuts]` opens Settings, `--demo-new-folder` makes a folder.
         let cli = CommandLine.arguments
         if let i = cli.firstIndex(of: "--split"), cli.indices.contains(i + 1) {
             tabs.current.toggleSplit()
             tabs.current.secondary?.navigate(to: URL(fileURLWithPath: cli[i + 1]))
         }
         if cli.contains("--open-settings") { SettingsWindow.show() }
+        if cli.contains("--demo-new-folder") {   // same as File > New Folder, a moment after launch
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in self?.model.newFolder() }
+        }
         DistributedNotificationCenter.default().addObserver(forName: Notification.Name("com.butterfinder.open"), object: nil, queue: .main) { [weak self] n in
             guard let path = n.userInfo?["path"] as? String else { return }
             let select = n.userInfo?["select"] as? Bool ?? false
@@ -188,6 +191,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             item("Enclosing Folder", #selector(up), upKey, target: self),
             .separator(),
             item("Address Bar", #selector(focusAddress), "l", target: self),
+            item("Go to Folder\u{2026}", #selector(focusAddress), "g", mods: [.command, .shift], target: self),
             item("Filter", #selector(focusFilter), "f", target: self),
         ])
         // Sort By (View menu) and Recent Folders (Go menu) are submenus.

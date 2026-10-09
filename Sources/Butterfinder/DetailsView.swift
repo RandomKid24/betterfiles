@@ -163,7 +163,7 @@ struct DetailsView: NSViewRepresentable {
             let rows = IndexSet(items.indices.filter { selection.contains(items[$0].url) })
             if table.selectedRowIndexes != rows { table.selectRowIndexes(rows, byExtendingSelection: false) }
             // New Folder: start renaming it as soon as the listing shows it.
-            if let url = model.pendingRename, let row = items.firstIndex(where: { $0.url == url }) {
+            if let name = model.pendingRename, let row = items.firstIndex(where: { $0.name == name }) {
                 model.pendingRename = nil
                 table.scrollRowToVisible(row)
                 DispatchQueue.main.async { [weak self, weak table] in if let table { self?.beginRename(table) } }
@@ -192,7 +192,7 @@ struct DetailsView: NSViewRepresentable {
                 cell.textField?.stringValue = item.modified?.formatted(date: .abbreviated, time: .shortened) ?? ""
                 cell.textField?.textColor = .secondaryLabelColor
             case .size:
-                cell.textField?.stringValue = item.size.map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) } ?? "\u{2014}"
+                cell.textField?.stringValue = (item.size ?? model.folderSizes[item.url.path]).map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) } ?? "\u{2014}"
                 cell.textField?.textColor = .secondaryLabelColor
                 cell.textField?.alignment = .right
             case .kind:

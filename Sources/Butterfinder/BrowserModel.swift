@@ -9,6 +9,7 @@ final class BrowserModel: Identifiable {
     private(set) var url: URL
     private(set) var visible: [FileItem] = []
     private(set) var version = 0   // bumps whenever `visible` changes, so AppKit views know to reload
+    private(set) var folderSizes: [String: Int64] = [:]   // folders whose size was asked for (Calculate Size)
     private(set) var totalCount = 0   // items in the folder before the filter
     private(set) var message: String?
     var status: String?
@@ -33,7 +34,10 @@ final class BrowserModel: Identifiable {
     @ObservationIgnored private static let undoStack = UndoStack()
     @ObservationIgnored private static var busy = false
 
-    @ObservationIgnored var pendingRename: URL?   // set by newFolder; the active view starts renaming it once it appears
+    @ObservationIgnored var pendingRename: String?   // name of a folder just created: the active view starts renaming it once it appears
+    // Names to select as soon as the next listing contains them. (Matching URLs doesn't work: a freshly made
+    // folder's URL has no trailing slash and the listing's does, so they never compare equal.)
+    @ObservationIgnored var pendingSelect: Set<String> = []
     @ObservationIgnored private var items: [FileItem] = []
     @ObservationIgnored private var loadID = 0
     // Shared so Cut in one tab can Paste in another.
@@ -72,6 +76,8 @@ final class BrowserModel: Identifiable {
             loadFolderPrefs()
             Recents.shared.add(target)
             selection = []
+            pendingSelect = []
+            folderSizes = [:]
             filter = ""
             status = nil
             items = []; visible = []; message = nil
@@ -99,7 +105,7 @@ final class BrowserModel: Identifiable {
         let target = URL(fileURLWithPath: path)
         if select {
             navigate(to: target.deletingLastPathComponent())
-            selection = [target.standardizedFileURL]
+            pendingSelect = [target.lastPathComponent]
         } else {
             navigate(to: target)
         }
@@ -162,6 +168,10 @@ final class BrowserModel: Identifiable {
         let shown = st.showHidden ? items : items.filter { !$0.isHidden }
         totalCount = shown.count
         visible = Sorter.sort(Filter.filter(shown, text: filter), by: sortColumn, ascending: ascending, foldersFirst: st.foldersFirst)
+        if !pendingSelect.isEmpty {
+            let hits = visible.filter { pendingSelect.contains($0.name) }
+            if !hits.isEmpty { selection = Set(hits.map(\.url)); pendingSelect = [] }
+        }
         selection = selection.intersection(Set(visible.map(\.url)))
         version += 1
     }
@@ -280,7 +290,7 @@ final class BrowserModel: Identifiable {
         guard !urls.isEmpty else { return }
         background("Compressing\u{2026}", { [Archive.compress(urls)] }) { out in
             Self.undoStack.recordCreated("compress", out)
-            if let dest = out.first?.destination { self.selection = [dest] }
+            self.pendingSelect = Set(out.compactMap { $0.destination?.lastPathComponent })
             self.report(out, done: "Created \(out.first?.destination?.lastPathComponent ?? "archive")", failed: "compress")
         }
     }
@@ -302,7 +312,7 @@ final class BrowserModel: Identifiable {
         let folder = url
         background("Duplicating\u{2026}", { FileOps.copy(urls, to: folder) }) { out in
             Self.undoStack.recordCreated("duplicate", out)
-            self.selection = Set(out.compactMap(\.destination))
+            self.pendingSelect = Set(out.compactMap { $0.destination?.lastPathComponent })
             self.report(out, done: "Duplicated \(self.count(urls.count))", failed: "duplicate")
         }
     }
@@ -311,7 +321,7 @@ final class BrowserModel: Identifiable {
         let out = selectedItems.map { FileOps.makeAlias(of: $0.url) }
         guard !out.isEmpty else { return }
         Self.undoStack.recordCreated("make alias", out)
-        selection = Set(out.compactMap(\.destination))
+        pendingSelect = Set(out.compactMap { $0.destination?.lastPathComponent })
         report(out, done: "Made \(count(out.count)) alias" + (out.count == 1 ? "" : "es"), failed: "make an alias of")
         reload()
     }
@@ -365,7 +375,7 @@ final class BrowserModel: Identifiable {
         let outcome = FileOps.newFolder(in: url)
         Self.undoStack.recordCreated("new folder", [outcome])
         report([outcome], done: "Created folder", failed: "create folder")
-        if let dest = outcome.destination { selection = [dest]; pendingRename = dest }
+        if let dest = outcome.destination { pendingSelect = [dest.lastPathComponent]; pendingRename = dest.lastPathComponent }
         reload()
     }
 
@@ -373,7 +383,7 @@ final class BrowserModel: Identifiable {
         let outcome = FileOps.rename(item.url, to: name)
         Self.undoStack.recordMoves("rename", [outcome])
         report([outcome], done: "Renamed", failed: "rename")
-        if let dest = outcome.destination { selection = [dest] }
+        if let dest = outcome.destination { pendingSelect = [dest.lastPathComponent] }
         reload()
     }
 
@@ -382,7 +392,7 @@ final class BrowserModel: Identifiable {
         let out = plan.map { FileOps.rename($0.url, to: $0.newName) }
         Self.undoStack.recordMoves("rename", out)
         report(out, done: "Renamed \(count(out.count))", failed: "rename")
-        selection = Set(out.compactMap(\.destination))
+        pendingSelect = Set(out.compactMap { $0.destination?.lastPathComponent })
         reload()
     }
 
@@ -405,6 +415,36 @@ final class BrowserModel: Identifiable {
         let folders = selectedItems.filter(\.isFolder)
         (folders.isEmpty ? [FileItem(url: url, isFolder: true)] : folders).forEach { Favorites.shared.add($0.url) }
         status = "Added to the sidebar"
+    }
+
+    /// Adds up the selected folders in the background and shows the result in the Size column.
+    func calculateSizes() {
+        let folders = selectedItems.filter(\.isFolder).map(\.url)
+        guard !folders.isEmpty else { return }
+        status = "Calculating size\u{2026}"
+        Task.detached {
+            let sizes = Self.measure(folders)
+            await MainActor.run {
+                self.folderSizes.merge(sizes) { $1 }
+                self.status = "Calculated \(sizes.count) folder size" + (sizes.count == 1 ? "" : "s")
+                self.version += 1   // makes the list redraw
+            }
+        }
+    }
+
+    private nonisolated static func measure(_ folders: [URL]) -> [String: Int64] {
+        var sizes: [String: Int64] = [:]
+        for folder in folders {
+            var total: Int64 = 0
+            if let e = FileManager.default.enumerator(at: folder, includingPropertiesForKeys: [.totalFileAllocatedSizeKey, .isRegularFileKey]) {
+                for case let f as URL in e {
+                    let v = try? f.resourceValues(forKeys: [.totalFileAllocatedSizeKey, .isRegularFileKey])
+                    if v?.isRegularFile == true { total += Int64(v?.totalFileAllocatedSize ?? 0) }
+                }
+            }
+            sizes[folder.path] = total
+        }
+        return sizes
     }
 
     func getInfo() {

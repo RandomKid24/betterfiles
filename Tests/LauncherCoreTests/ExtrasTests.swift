@@ -53,4 +53,33 @@ final class ExtrasTests: XCTestCase {
             XCTAssertNil(WebTarget.url(for: t), t)
         }
     }
+
+    func testSearchShortcuts() {
+        XCTAssertEqual(WebTarget.shortcut(for: "g swift tips & tricks")?.url.absoluteString, "https://www.google.com/search?q=swift%20tips%20%26%20tricks")
+        XCTAssertEqual(WebTarget.shortcut(for: "gh  repo:foo")?.title, "Search GitHub for \u{201C}repo:foo\u{201D}")
+        XCTAssertNil(WebTarget.shortcut(for: "g"))
+        XCTAssertNil(WebTarget.shortcut(for: "g "))
+        XCTAssertNil(WebTarget.shortcut(for: "gx something"))
+    }
+
+    func testContentSearchPredicateIsSanitised() {
+        XCTAssertEqual(ContentSearch.predicate(for: "invoice 2025"), "kMDItemTextContent == \"invoice\"cd && kMDItemTextContent == \"2025*\"cd")
+        XCTAssertEqual(ContentSearch.predicate(for: "a\"b*c\\"), "kMDItemTextContent == \"abc*\"cd")
+        XCTAssertNil(ContentSearch.predicate(for: "x"))
+        XCTAssertNil(ContentSearch.predicate(for: "**"))
+    }
+
+    func testOneHugeFolderCannotStarveTheOthers() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let fm = FileManager.default
+        try fm.createDirectory(at: root.appendingPathComponent("aaa-huge"), withIntermediateDirectories: true)
+        try fm.createDirectory(at: root.appendingPathComponent("Documents"), withIntermediateDirectories: true)
+        for i in 0..<200 { try Data().write(to: root.appendingPathComponent("aaa-huge/junk\(i).txt")) }
+        try Data().write(to: root.appendingPathComponent("Documents/needle.txt"))
+        let index = FileIndex()
+        index.build(root: root.path, cap: 500, perPriority: 50, perOther: 20)
+        XCTAssertEqual(index.search("needle").map(\.name), ["needle.txt"])
+        XCTAssertLessThan(index.search("junk", limit: 1000).count, 30)   // the huge folder was cut off at its own limit
+    }
 }

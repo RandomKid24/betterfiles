@@ -28,7 +28,7 @@ final class Node: NSObject {
     /// Non-hidden sub-folders, loaded on first use.
     func loadChildren() -> [Node] {
         if let children { return children }
-        let folders = ((try? FolderListing.list(url)) ?? []).filter { $0.isFolder && !$0.isHidden }
+        let folders = FolderListing.subfolders(url)
         let nodes = Sorter.sort(folders, by: .name, ascending: true).map { Node(url: $0.url, name: $0.name) }
         children = nodes
         return nodes

@@ -40,4 +40,32 @@ public enum WebTarget {
         let p = s.split(separator: ".", omittingEmptySubsequences: false)
         return p.count == 4 && p.allSatisfy { Int($0).map { (0...255).contains($0) } ?? false }
     }
+
+    // MARK: "g swift tips", "yt lofi", "gh repo:foo" ...
+
+    public struct SearchShortcut { public let title: String; public let url: URL }
+
+    static let sites: [String: (name: String, base: String)] = [
+        "g": ("Google", "https://www.google.com/search?q="),
+        "yt": ("YouTube", "https://www.youtube.com/results?search_query="),
+        "gh": ("GitHub", "https://github.com/search?q="),
+        "so": ("Stack Overflow", "https://stackoverflow.com/search?q="),
+        "mdn": ("MDN", "https://developer.mozilla.org/en-US/search?q="),
+        "npm": ("npm", "https://www.npmjs.com/search?q="),
+        "wiki": ("Wikipedia", "https://en.wikipedia.org/w/index.php?search="),
+        "maps": ("Maps", "https://maps.apple.com/?q="),
+        "ddg": ("DuckDuckGo", "https://duckduckgo.com/?q="),
+    ]
+
+    /// "g something" -> a Google search for "something", and so on for the sites above.
+    public static func shortcut(for text: String) -> SearchShortcut? {
+        let t = text.trimmingCharacters(in: .whitespaces)
+        guard let space = t.firstIndex(of: " ") else { return nil }
+        let key = t[..<space].lowercased()
+        let query = t[space...].trimmingCharacters(in: .whitespaces)
+        guard !query.isEmpty, let site = sites[key] else { return nil }
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._~"))
+        guard let encoded = query.addingPercentEncoding(withAllowedCharacters: allowed), let url = URL(string: site.base + encoded) else { return nil }
+        return SearchShortcut(title: "Search \(site.name) for \u{201C}\(query)\u{201D}", url: url)
+    }
 }

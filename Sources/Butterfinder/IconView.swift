@@ -217,7 +217,7 @@ struct IconView: NSViewRepresentable {
             if needsReload { cv.reloadData() }
             let wanted = Set(items.indices.filter { selection.contains(items[$0].url) }.map { IndexPath(item: $0, section: 0) })
             if cv.selectionIndexPaths != wanted { cv.selectionIndexPaths = wanted }
-            if let url = model.pendingRename, let i = items.firstIndex(where: { $0.url == url }) {
+            if let name = model.pendingRename, let i = items.firstIndex(where: { $0.name == name }) {
                 model.pendingRename = nil
                 cv.scrollToItems(at: [IndexPath(item: i, section: 0)], scrollPosition: .centeredVertically)
                 DispatchQueue.main.async { [weak self, weak cv] in if let cv { self?.beginRename(cv) } }

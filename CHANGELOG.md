@@ -1,5 +1,22 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- Butterlight: **search inside files**. Type `? invoice 2025` to find files by their text (uses Spotlight's content index).
+- Butterlight: **web shortcuts**: `g`, `yt`, `gh`, `so`, `mdn`, `npm`, `wiki`, `maps`, `ddg` followed by your words.
+- Butterlight: **quick commands**: `lock`, `sleep`, `dark mode`, `uuid`, `timestamp`, `ip`.
+- Butterlight: shows a clear message when macOS is hiding Documents, Desktop or Downloads from it, and re-indexes as soon as you allow access.
+- Butterfinder: **Share** submenu (AirDrop, Messages, Mail...), **Calculate Size** for folders (shown in the Size column), **Go to Folder** (⇧⌘G).
+
+### Fixed
+- Butterfinder: **New Folder now starts renaming right away.** The new folder is selected and its name is editable. The same bug stopped Duplicate, Compress, Make Alias, bulk rename and "Show in Butterfinder" from selecting their result.
+- Butterfinder: the sidebar could freeze the app on startup when the current folder was inside a very large folder (it read tags and details for every file just to find sub-folders).
+- Butterlight: files in very large home folders could be missing from search. Name search now also asks Spotlight (off the main thread), and the built-in index scans your personal folders first and limits each top-level folder so one huge folder can't use up the whole index.
+
+### Changed
+- Butterlight no longer uses a live Spotlight query object; name search runs `mdfind` in the background and cancels itself on the next keystroke.
+
 ## [1.0.2] - 2026-10-09
 
 ### Fixed

@@ -31,4 +31,9 @@ final class FolderListingTests: TempDirTestCase {
     func testMissingFolderThrows() {
         XCTAssertThrowsError(try FolderListing.list(dir.appendingPathComponent("nope")))
     }
+
+    func testSubfoldersSkipsFilesHiddenAndPackages() throws {
+        try mkdir("Docs"); try mkdir(".secret"); try mkdir("App.app"); try touch("a.txt")
+        XCTAssertEqual(FolderListing.subfolders(dir).map(\.name).sorted(), ["Docs"])
+    }
 }
