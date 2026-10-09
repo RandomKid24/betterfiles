@@ -6,40 +6,55 @@ Two pieces, built one at a time, each with its own spec and plan.
 ## Done
 
 ### Part 1: BetterLauncher (Spotlight replacement), built, awaiting full manual smoke test
-- Menu-bar Swift app (no Dock icon). Global **Cmd+Space** opens a floating search panel.
-- Searches apps, files and folders using Spotlight's index (`NSMetadataQuery`). No web, Mail or Messages results.
-- Ranks results by match quality (prefix > word-prefix > substring), plus how often and how recently you open them, plus a small bonus for apps. Top 8 shown.
-- Ignores case and accents (`cafe` finds `Café`). Excludes `~/Library` and hidden paths.
-- Usage history is stored in `~/Library/Application Support/BetterLauncher/usage.json`. A corrupt file starts empty.
-- If a result can't be opened (moved or deleted), nothing is recorded and the panel stays open.
+- Menu-bar Swift app (no Dock icon). Global **Cmd+Space** opens a floating glass search panel with a pop-in animation.
+- Apps come from an in-memory app index (instant). Files come from Spotlight's index using a fast word-prefix query (2+ characters). Things you opened before always appear (usage history).
+- Ranking: match quality (prefix > word-prefix > substring) + how often and how recently you open it + a small bonus for apps. Top 8 shown.
+- Ignores case and accents. Excludes `~/Library` and hidden paths. Usage history in `~/Library/Application Support/BetterLauncher/usage.json`.
 - Menu-bar menu warns if Spotlight's own Cmd+Space shortcut is still on.
-- 16 unit tests pass (`swift test`).
-- Reviewed by a fresh reviewer. 3 Important findings fixed (focus after close, shortcut-taken notice, selection jumping on live updates).
+- Specs/plans: `docs/superpowers/specs/2026-10-08-launcher-design.md`, `docs/superpowers/plans/2026-10-08-launcher.md`.
 
-Design: [docs/superpowers/specs/2026-10-08-launcher-design.md](docs/superpowers/specs/2026-10-08-launcher-design.md)
-Plan: [docs/superpowers/plans/2026-10-08-launcher.md](docs/superpowers/plans/2026-10-08-launcher.md)
+### Part 2, Stage A: BetterFiles core browser (Finder replacement), built, awaiting manual smoke test
+- Explorer-style file manager: folder tree sidebar, editable address bar with breadcrumbs, details view with sortable columns, zoomable icon view with thumbnails, in-folder filter.
+- **Cut + Paste moves files** (Cut then Paste into another folder). If something else is copied in between, Paste copies instead. Failed items stay on the clipboard for retry.
+- Delete goes to the Trash (never permanent). Nothing is ever overwritten (`name 2.ext`, `name copy.ext`).
+- Hidden files and extensions are always shown. View mode, sort and zoom are remembered.
+- Shortcuts: Cmd+C/X/V/A, Return opens, F2 renames, Cmd+Delete trashes, Cmd+Up parent, Cmd+[ / ] back/forward, Cmd+L address bar, Cmd+F filter, Cmd+1/2 views, Cmd+R reload.
+- `FilesCore` library is unit-tested; the AppKit views are checked by build and the manual smoke test (Task 10 of the plan).
+- 61 unit tests pass in total (21 launcher + 40 files).
+- Spec: `docs/superpowers/specs/2026-10-08-files-stage-a-design.md`. Plan: `docs/superpowers/plans/2026-10-08-files-stage-a.md`.
 
-## Run it
+## Run
 
-1. System Settings > Keyboard > Keyboard Shortcuts > Spotlight > untick "Show Spotlight search" (shortcut only; keep the Spotlight index on, the app uses it).
-2. `swift run BetterLauncher`, then press Cmd+Space. Ctrl+C in the terminal quits it.
+Launcher: untick Spotlight's shortcut (System Settings > Keyboard > Keyboard Shortcuts > Spotlight), then `swift run BetterLauncher`.
+Files: `swift run BetterFiles`.
 
 ## Remaining
 
-### Launcher
-- [ ] Finish the manual smoke test (Task 5 of the plan): hotkey toggle, typing, Return, Esc returns to the previous app, odd characters, deleted file.
-- [ ] Deferred minor: stop the live search while the panel is hidden.
-- [ ] Deferred minor: give feedback (beep, drop the row) when opening a result fails.
-- [ ] "Spotlight index unavailable" message (in the spec, not built).
-- [ ] Package as a real `.app` and add launch-at-login. It currently runs as a bare executable.
-- [ ] Panel is a fixed height; resize to fit the results if it looks wrong.
-- [ ] Search caps at 1000 hits, so one-letter queries can miss the best match. Move to our own index (FSEvents + SQLite FTS) if Spotlight's index is the limit.
+### Stage A manual smoke test (needs a person at the keyboard)
+- [ ] The 14-point checklist in Task 10 of the Stage A plan (sorting, address bar, cut/paste, trash, rename, filter, icon zoom, big folders, rapid folder clicking, permissions).
+- [ ] Runtime-only unknowns to check: double-click opens in icon view; folder tree reveal on first launch.
 
-### Part 2: file manager (Finder replacement), not started
-- [ ] Brainstorm and write its own spec, then a plan.
-- [ ] Direction so far: native macOS app, Explorer-style (folder tree sidebar, tabs, address bar, cut/paste that moves files, sortable details view).
-- [ ] Note: Finder can't be uninstalled (SIP). The plan is an app that opens for folders and gets a shortcut and Dock icon.
-- [ ] Launcher integration: typing a folder name opens it in the new file manager.
+### Stage A known follow-ups (from code review, none blocking)
+- Switching folders keeps the old rows on screen until the new listing loads; actions in that moment act on stale rows.
+- Rename: a reload mid-edit could rename a different file; F2 with several icons selected renames an arbitrary one.
+- Status bar shows only the first failure of a multi-file operation.
+- Copying over a name clash on an app bundle gives `App.app 2` (breaks the bundle); dangling symlinks at the destination block a paste.
+- Sidebar: expanding a huge folder is synchronous; new folders and newly mounted volumes don't appear until relaunch.
+- Menu key equivalents Cmd+Delete and Cmd+Up are consumed while a text field is editing.
+- Paste/trash of large selections run on the main thread (UI freezes during big copies).
+- Thumbnail cache has no size limit.
+
+### Launcher
+- [ ] Finish the manual smoke test (Task 5 of the launcher plan) and judge the new animation and glass shape.
+- [ ] "Spotlight index unavailable" message (in the spec, not built).
+- [ ] Package as a real `.app` and add launch-at-login. Both apps run as bare executables for now.
+- [ ] Search is capped at 300 file hits per query, so a very common word can miss the best file. Move to our own index (FSEvents + SQLite FTS) if Spotlight's index is the limit.
+
+### Next stages for BetterFiles
+- [ ] Stage B: tabs.
+- [ ] Stage C: dual pane.
+- [ ] Stage D: make it the default for folders, Dock/login setup, launcher integration (type a folder name to open it in BetterFiles).
+- Note: Finder can't be uninstalled (SIP). The plan is an app that opens for folders and gets a shortcut and Dock icon.
 
 ### Not planned (add only if wanted)
-Calculator, clipboard history, plugins, web search, file previews.
+Calculator, clipboard history, plugins, web search, Quick Look preview pane, folder watching, network drives, tags.
