@@ -62,7 +62,7 @@ final class IconCell: NSCollectionViewItem {
     override func loadView() {
         let v = NSView()
         v.wantsLayer = true
-        v.layer?.cornerRadius = 10
+        v.layer?.cornerRadius = 12
         icon.imageScaling = .scaleProportionallyUpOrDown
         label.alignment = .center
         label.maximumNumberOfLines = 2
@@ -86,8 +86,10 @@ final class IconCell: NSCollectionViewItem {
 
     override var isSelected: Bool {
         didSet {
-            view.layer?.backgroundColor = isSelected
-                ? NSColor.selectedContentBackgroundColor.withAlphaComponent(0.35).cgColor : nil
+            let accent = MainActor.assumeIsolated { Settings.shared.theme.accentNS }
+            view.layer?.backgroundColor = isSelected ? accent.withAlphaComponent(0.28).cgColor : nil
+            view.layer?.borderWidth = isSelected ? 1.5 : 0
+            view.layer?.borderColor = accent.withAlphaComponent(0.7).cgColor
         }
     }
 
@@ -112,6 +114,7 @@ struct IconView: NSViewRepresentable {
     let version: Int
     let selection: Set<URL>
     let zoom: Double
+    let style: Int   // Settings.revision, see DetailsView
 
     func makeCoordinator() -> Coordinator { Coordinator(model) }
 
@@ -159,6 +162,8 @@ struct IconView: NSViewRepresentable {
 
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         guard let cv = scroll.documentView as? ZoomableCollectionView else { return }
+        let bg = Settings.shared.theme.surfaceNS ?? .controlBackgroundColor
+        if cv.backgroundColors != [bg] { cv.backgroundColors = [bg] }
         context.coordinator.update(cv, version: version, selection: selection, zoom: zoom)
     }
 

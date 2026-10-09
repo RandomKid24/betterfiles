@@ -152,7 +152,9 @@ final class BrowserModel: Identifiable {
     }
 
     func recompute() {
-        visible = Sorter.sort(Filter.filter(items, text: filter), by: sortColumn, ascending: ascending)
+        let st = Settings.shared
+        let shown = st.showHidden ? items : items.filter { !$0.isHidden }
+        visible = Sorter.sort(Filter.filter(shown, text: filter), by: sortColumn, ascending: ascending, foldersFirst: st.foldersFirst)
         selection = selection.intersection(Set(visible.map(\.url)))
         version += 1
     }
@@ -240,6 +242,14 @@ final class BrowserModel: Identifiable {
     func trashSelection() {
         let urls = selectedItems.map(\.url)
         guard !urls.isEmpty else { return }
+        if Settings.shared.confirmTrash {
+            let alert = NSAlert()
+            alert.messageText = urls.count == 1 ? "Move \u{201C}\(urls[0].lastPathComponent)\u{201D} to the Trash?" : "Move \(urls.count) items to the Trash?"
+            alert.informativeText = "You can undo this with \u{2318}Z or restore it from the Trash."
+            alert.addButton(withTitle: "Move to Trash")
+            alert.addButton(withTitle: "Cancel")
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+        }
         background("Moving to the Trash\u{2026}", { FileOps.trash(urls) }) { out in
             Self.undoStack.recordMoves("move to Trash", out)
             self.report(out, done: "Moved \(self.count(urls.count)) to the Trash", failed: "move to the Trash")

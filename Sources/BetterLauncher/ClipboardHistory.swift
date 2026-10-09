@@ -18,6 +18,7 @@ final class ClipboardHistory {
         let pb = NSPasteboard.general
         guard pb.changeCount != lastCount else { return }
         lastCount = pb.changeCount
+        guard LSettings.shared.clipboard else { items.removeAll(); return }   // turned off: collect nothing
         let types = pb.types?.map(\.rawValue) ?? []
         guard !types.contains("org.nspasteboard.ConcealedType"), !types.contains("org.nspasteboard.TransientType"),
               let text = pb.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines),

@@ -52,6 +52,7 @@ final class Model {
         searchTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(70))
             guard !Task.isCancelled, let self else { return }
+            guard LSettings.shared.searchFiles else { return }
             self.search.update(q)
             let hits = await Task.detached { self.index.search(q) }.value
             guard !Task.isCancelled else { return }
@@ -149,7 +150,7 @@ final class Model {
 
     private func actionRows() -> [LRow] {
         let q = text.trimmingCharacters(in: .whitespaces)
-        if let answer = Calc.answer(q) {
+        if LSettings.shared.calculator, let answer = Calc.answer(q) {
             let value = answer.split(separator: "=").last.map { $0.trimmingCharacters(in: .whitespaces) } ?? answer
             return [LRow(id: "calc", title: answer, subtitle: "Return to copy the answer", symbol: "equal.circle.fill",
                          run: { Self.copy(value.split(separator: " ").first.map(String.init) ?? value) })]
@@ -172,18 +173,18 @@ final class Model {
     private func rerank(keepSelection: Bool = true) {
         let previous = keepSelection ? selectedRow?.id : nil
         var out: [LRow]
-        if let filter = clipMode {
+        if LSettings.shared.clipboard, let filter = clipMode {
             out = clips.items.filter { filter.isEmpty || $0.lowercased().contains(filter) }.prefix(8).enumerated().map { i, item in
                 LRow(id: "clip\(i)\(item.hashValue)", title: item.replacingOccurrences(of: "\n", with: " "), subtitle: "Return to copy again",
                      symbol: "doc.on.clipboard", run: { Self.copy(item) })
             }
         } else {
             var seen = Set<String>()
-            let all = (base + raw + indexed).filter { seen.insert($0.path).inserted }
-            let files = Ranker.rank(query: text, candidates: all, usage: usage.get)
+            let all = (base + (LSettings.shared.searchFiles ? raw + indexed : [])).filter { seen.insert($0.path).inserted }
+            let files = Ranker.rank(query: text, candidates: all, usage: usage.get, limit: LSettings.shared.maxResults)
             out = actionRows() + files.map { LRow(id: $0.path, title: $0.name, subtitle: $0.parent, path: $0.path) }
             let q = text.trimmingCharacters(in: .whitespaces)
-            if out.isEmpty, q.count >= 2, let url = URL(string: "https://www.google.com/search?q=" + (q.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? q)) {
+            if out.isEmpty, LSettings.shared.webFallback, q.count >= 2, let url = URL(string: "https://www.google.com/search?q=" + (q.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? q)) {
                 out = [LRow(id: "web", title: "Search the web for \u{201C}\(q)\u{201D}", subtitle: "Return to open in your browser",
                             symbol: "globe", run: { NSWorkspace.shared.open(url) })]
             }

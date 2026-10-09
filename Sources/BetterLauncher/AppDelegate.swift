@@ -29,6 +29,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ? "Cmd+Space opens the launcher"
             : "Cmd+Space is taken: turn off Spotlight's shortcut in System Settings > Keyboard > Keyboard Shortcuts > Spotlight",
             action: nil, keyEquivalent: "")
+        let prefs = NSMenuItem(title: "Settings\u{2026}", action: #selector(openSettings), keyEquivalent: ",")
+        prefs.target = self
+        menu.addItem(prefs)
         let show = NSMenuItem(title: "Show launcher", action: #selector(showLauncher), keyEquivalent: "")
         show.target = self
         menu.addItem(show)
@@ -47,6 +50,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if service.status == .enabled { try? service.unregister() } else { try? service.register() }
         sender.state = service.status == .enabled ? .on : .off
     }
+
+    @objc private func openSettings() { LauncherSettingsWindow.show() }
 
     @objc private func showLauncher() { controller.show() }
 }

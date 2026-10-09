@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Shared
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -8,12 +9,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var window: NSWindow!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        Settings.shared.applyAppearance()
         buildMenu()
         let hosting = NSHostingController(rootView: BrowserView(tabs: tabs))
         hosting.sizingOptions = [] // the window decides its size, not the SwiftUI content
         window = NSWindow(contentViewController: hosting)
         window.setContentSize(NSSize(width: 1100, height: 700))
         window.title = "BetterFiles"
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.toolbarStyle = .unified
         window.setFrameAutosaveName("BetterFilesMain")
         window.makeKeyAndOrderFront(nil)
         NSApp.activate()
@@ -48,6 +53,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if NSApp.keyWindow?.firstResponder is NSText { return } // Cmd+Delete belongs to the text field while editing
         model.trashSelection()
     }
+    @objc private func openSettings() { SettingsWindow.show() }
+    @objc private func toggleHidden() { Settings.shared.showHidden.toggle() }
     @objc private func undo() {
         // Text fields keep their own Cmd+Z while editing.
         if NSApp.keyWindow?.firstResponder is NSText { NSApp.sendAction(Selector(("undo:")), to: nil, from: nil) } else { model.undo() }
@@ -93,6 +100,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         add("BetterFiles", [
             item("About BetterFiles", #selector(NSApplication.orderFrontStandardAboutPanel(_:))),
             .separator(),
+            item("Settings\u{2026}", #selector(openSettings), ",", target: self),
+            .separator(),
             item("Hide BetterFiles", #selector(NSApplication.hide(_:)), "h"),
             .separator(),
             item("Quit BetterFiles", #selector(NSApplication.terminate(_:)), "q"),
@@ -124,6 +133,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         add("View", [
             item("Details", #selector(showDetails), "1", target: self),
             item("Icons", #selector(showIcons), "2", target: self),
+            item("Show Hidden Files", #selector(toggleHidden), ".", mods: [.command, .shift], target: self),
             item("Split View", #selector(split), "\\", target: self),
             item("Copy to Other Pane", #selector(copyToOther), String(UnicodeScalar(NSF5FunctionKey)!), mods: [], target: self),
             item("Move to Other Pane", #selector(moveToOther), String(UnicodeScalar(NSF6FunctionKey)!), mods: [], target: self),

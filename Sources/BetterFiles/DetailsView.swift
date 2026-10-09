@@ -37,6 +37,7 @@ struct DetailsView: NSViewRepresentable {
     let selection: Set<URL>
     let sort: Column
     let ascending: Bool
+    let style: Int   // Settings.revision: read by the parent so SwiftUI calls updateNSView when a setting changes
 
     func makeCoordinator() -> Coordinator { Coordinator(model) }
 
@@ -44,10 +45,9 @@ struct DetailsView: NSViewRepresentable {
         let c = context.coordinator
         let table = FileTableView()
         table.style = .fullWidth
-        table.rowHeight = 24
+        table.rowHeight = 28
         table.allowsMultipleSelection = true
         table.allowsColumnReordering = true
-        table.usesAlternatingRowBackgroundColors = true
         table.autosaveName = "BetterFilesDetails"
         table.autosaveTableColumns = true
 
@@ -88,6 +88,7 @@ struct DetailsView: NSViewRepresentable {
 
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         guard let table = scroll.documentView as? FileTableView else { return }
+        context.coordinator.applyStyle(table)
         context.coordinator.update(table, version: version, selection: selection, sort: sort, ascending: ascending)
     }
 
@@ -102,6 +103,26 @@ struct DetailsView: NSViewRepresentable {
 
         let ctx: ContextMenu
         init(_ model: BrowserModel) { self.model = model; ctx = ContextMenu(model) }
+
+        private var appliedStyle = -1
+
+        func applyStyle(_ table: FileTableView) {
+            let st = Settings.shared
+            guard st.revision != appliedStyle else { return }
+            appliedStyle = st.revision
+            table.rowHeight = st.density.rowHeight
+            table.usesAlternatingRowBackgroundColors = st.stripedRows
+            table.backgroundColor = st.theme.surfaceNS ?? .controlBackgroundColor
+            table.reloadData()
+        }
+
+        func tableView(_ tv: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
+            let id = NSUserInterfaceItemIdentifier("themedRow")
+            if let reused = tv.makeView(withIdentifier: id, owner: nil) as? ThemedRowView { return reused }
+            let v = ThemedRowView()
+            v.identifier = id
+            return v
+        }
 
         func update(_ table: FileTableView, version: Int, selection: Set<URL>, sort: Column, ascending: Bool) {
             syncing = true
@@ -146,11 +167,14 @@ struct DetailsView: NSViewRepresentable {
                 cell.textField?.alphaValue = item.isHidden ? 0.55 : 1
             case .modified:
                 cell.textField?.stringValue = item.modified?.formatted(date: .abbreviated, time: .shortened) ?? ""
+                cell.textField?.textColor = .secondaryLabelColor
             case .size:
-                cell.textField?.stringValue = item.size.map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) } ?? ""
+                cell.textField?.stringValue = item.size.map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) } ?? "\u{2014}"
+                cell.textField?.textColor = .secondaryLabelColor
                 cell.textField?.alignment = .right
             case .kind:
                 cell.textField?.stringValue = item.kind
+                cell.textField?.textColor = .secondaryLabelColor
             }
             return cell
         }

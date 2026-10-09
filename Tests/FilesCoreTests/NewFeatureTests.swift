@@ -49,4 +49,10 @@ final class NewFeatureTests: TempDirTestCase {
         let names = BatchRename.plan(urls, base: "Trip", start: 8).map(\.newName)
         XCTAssertEqual(names, ["Trip 08.jpg", "Trip 09.jpg", "Trip 10.jpg", "Trip 11"])
     }
+
+    func testFoldersFirstCanBeTurnedOff() {
+        let items = [FileItem(url: dir.appendingPathComponent("b"), isFolder: true), FileItem(url: dir.appendingPathComponent("a.txt"))]
+        XCTAssertEqual(Sorter.sort(items, by: .name, ascending: true).map(\.name), ["b", "a.txt"])
+        XCTAssertEqual(Sorter.sort(items, by: .name, ascending: true, foldersFirst: false).map(\.name), ["a.txt", "b"])
+    }
 }

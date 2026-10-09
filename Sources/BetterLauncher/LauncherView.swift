@@ -1,5 +1,6 @@
 import SwiftUI
 import LauncherCore
+import Shared
 
 /// Icon lookups are slow (disk + icon services), so each path is fetched once.
 @MainActor
@@ -26,7 +27,7 @@ struct Row: View {
         HStack(spacing: 12) {
             Group {
                 if let symbol = row.symbol {
-                    Image(systemName: symbol).font(.system(size: 18)).foregroundStyle(Color.accentColor)
+                    Image(systemName: symbol).font(.system(size: 18)).foregroundStyle(LSettings.shared.theme.accentColor)
                 } else {
                     Image(nsImage: icon ?? row.path.flatMap(Icons.cached) ?? NSImage()).resizable()
                 }
@@ -92,9 +93,9 @@ struct LauncherView: View {
                                 // One pill shared by all rows: it glides to the selected row instead of blinking.
                                 if i == model.selected {
                                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                        .fill(Color.accentColor.opacity(0.22))
+                                        .fill(LSettings.shared.theme.accentColor.opacity(0.22))
                                         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                            .strokeBorder(Color.accentColor.opacity(0.35), lineWidth: 1))
+                                            .strokeBorder(LSettings.shared.theme.accentColor.opacity(0.35), lineWidth: 1))
                                         .matchedGeometryEffect(id: "pill", in: highlight)
                                 }
                             }
@@ -118,7 +119,9 @@ struct LauncherView: View {
             }
         }
         .frame(width: 640)
-        .glassEffect(.regular, in: shape)
+        .background { if !LSettings.shared.glass { shape.fill(LSettings.shared.theme.surfaceColor ?? Color(nsColor: .windowBackgroundColor)) } }
+        .glassEffect(LSettings.shared.glass ? .regular : .identity, in: shape)
+        .overlay { shape.strokeBorder(LSettings.shared.theme.accentColor.opacity(0.25), lineWidth: 1) }
         .shadow(color: .black.opacity(0.28), radius: 28, y: 12)
         // Pop in from slightly smaller and higher, like Spotlight; spring so it settles instead of stopping dead.
         .scaleEffect(model.visible ? 1 : 0.94, anchor: .top)

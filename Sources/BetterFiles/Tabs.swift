@@ -85,7 +85,7 @@ struct TabBar: View {
                 }
                 .font(.system(size: 12))
                 .padding(.horizontal, 10).padding(.vertical, 5)
-                .background(active ? Color.accentColor.opacity(0.2) : Color.clear, in: Capsule())
+                .background(active ? Settings.shared.theme.accentColor.opacity(0.22) : Color.clear, in: Capsule())
                 .contentShape(Capsule())
                 .onTapGesture { withAnimation(.snappy(duration: 0.2)) { tabs.select(i) } }
             }
