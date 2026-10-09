@@ -81,7 +81,7 @@ final class Model {
     // MARK: actions (each works on any row so the right-click menu can use them too)
 
     /// Dismisses first so the panel never waits on the target app; the open happens off the main thread.
-    /// Folders open in BetterFiles; `reveal` shows the item's folder there with the item selected.
+    /// Folders open in Butterfinder; `reveal` shows the item's folder there with the item selected.
     func open(_ row: LRow, reveal: Bool = false) {
         if let run = row.run { run(); onDismiss(); return }
         guard let path = row.path else { return }

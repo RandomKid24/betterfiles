@@ -185,7 +185,7 @@ struct RowMenu: View {
     var body: some View {
         if row.path != nil {
             Button("Open") { model.open(row) }
-            Button("Show in BetterFiles") { model.open(row, reveal: true) }
+            Button("Show in Butterfinder") { model.open(row, reveal: true) }
             Button("Reveal in Finder") { model.revealInFinder(row) }
             Menu("Open With") {
                 ForEach(model.appsFor(row), id: \.self) { app in

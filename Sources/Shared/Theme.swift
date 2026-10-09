@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// A colour theme shared by BetterFiles and BetterLauncher: an accent plus an optional tinted surface.
+/// A colour theme shared by Butterfinder and Butterlight: an accent plus an optional tinted surface.
 public struct Theme: Identifiable, Hashable, Sendable {
     public let id: String
     public let name: String

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Builds release apps and installs BetterLauncher.app and BetterFiles.app into ~/Applications.
+# Builds release apps and installs Butterlight.app and Butterfinder.app into ~/Applications.
 set -e
 cd "$(dirname "$0")"
 swift build -c release
@@ -33,9 +33,9 @@ PLIST
   codesign --force --sign - "$APP"
 }
 
-make_app BetterLauncher com.betterfiles.launcher '<key>LSUIElement</key><true/>' magnifyingglass 7B61FF 3B82F6
-make_app BetterFiles com.betterfiles.files '<key>CFBundleDocumentTypes</key><array><dict>
+make_app Butterlight com.butterlight.app '<key>LSUIElement</key><true/>' magnifyingglass 7B61FF 3B82F6
+make_app Butterfinder com.butterfinder.app '<key>CFBundleDocumentTypes</key><array><dict>
 <key>CFBundleTypeName</key><string>Folder</string><key>CFBundleTypeRole</key><string>Viewer</string>
 <key>LSItemContentTypes</key><array><string>public.folder</string></array></dict></array>' folder.fill 38BDF8 2563EB
 
-echo "Installed to $DEST. Start with: open $DEST/BetterLauncher.app $DEST/BetterFiles.app"
+echo "Installed to $DEST. Start with: open $DEST/Butterlight.app $DEST/Butterfinder.app"

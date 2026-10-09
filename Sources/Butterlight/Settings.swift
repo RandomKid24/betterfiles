@@ -34,7 +34,7 @@ enum LauncherSettingsWindow {
     @MainActor static func show() {
         if window == nil {
             let w = NSWindow(contentViewController: NSHostingController(rootView: LauncherSettingsView()))
-            w.title = "BetterLauncher Settings"
+            w.title = "Butterlight Settings"
             w.styleMask = [.titled, .closable]
             w.isReleasedWhenClosed = false
             w.center()

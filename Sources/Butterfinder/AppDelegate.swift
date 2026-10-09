@@ -16,11 +16,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         hosting.sizingOptions = [] // the window decides its size, not the SwiftUI content
         window = NSWindow(contentViewController: hosting)
         window.setContentSize(NSSize(width: 1100, height: 700))
-        window.title = "BetterFiles"
+        window.title = "Butterfinder"
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.toolbarStyle = .unified
-        window.setFrameAutosaveName("BetterFilesMain")
+        window.setFrameAutosaveName("ButterfinderMain")
         window.makeKeyAndOrderFront(nil)
         NSApp.activate()
 
@@ -30,7 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if first == "--select", args.count > 1 { model.show(path: args[args.startIndex + 1], select: true) }
             else { model.show(path: first, select: false) }
         }
-        DistributedNotificationCenter.default().addObserver(forName: Notification.Name("com.betterfiles.open"), object: nil, queue: .main) { [weak self] n in
+        DistributedNotificationCenter.default().addObserver(forName: Notification.Name("com.butterfinder.open"), object: nil, queue: .main) { [weak self] n in
             guard let path = n.userInfo?["path"] as? String else { return }
             let select = n.userInfo?["select"] as? Bool ?? false
             MainActor.assumeIsolated {
@@ -41,7 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    // "Open With > BetterFiles" on a folder.
+    // "Open With > Butterfinder" on a folder.
     func application(_ app: NSApplication, open urls: [URL]) {
         if let url = urls.first { model.show(path: url.path, select: false) }
     }
@@ -116,14 +116,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         let upKey = String(UnicodeScalar(NSUpArrowFunctionKey)!)
 
-        add("BetterFiles", [
-            item("About BetterFiles", #selector(NSApplication.orderFrontStandardAboutPanel(_:))),
+        add("Butterfinder", [
+            item("About Butterfinder", #selector(NSApplication.orderFrontStandardAboutPanel(_:))),
             .separator(),
             item("Settings\u{2026}", #selector(openSettings), ",", target: self),
             .separator(),
-            item("Hide BetterFiles", #selector(NSApplication.hide(_:)), "h"),
+            item("Hide Butterfinder", #selector(NSApplication.hide(_:)), "h"),
             .separator(),
-            item("Quit BetterFiles", #selector(NSApplication.terminate(_:)), "q"),
+            item("Quit Butterfinder", #selector(NSApplication.terminate(_:)), "q"),
         ])
         add("File", [
             item("New Tab", #selector(newTab), "t", target: self),

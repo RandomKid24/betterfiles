@@ -1,19 +1,21 @@
 # betterfiles: progress
 
+Names: the launcher is **Butterlight** (was BetterLauncher), the file manager is **Butterfinder** (was BetterFiles).
+
 Goal: replace the parts of macOS the author dislikes: Spotlight (Cmd+Space) and Finder.
 Two pieces, built one at a time, each with its own spec and plan.
 
 ## Done
 
-### Part 1: BetterLauncher (Spotlight replacement), built, awaiting full manual smoke test
+### Part 1: Butterlight (Spotlight replacement), built, awaiting full manual smoke test
 - Menu-bar Swift app (no Dock icon). Global **Cmd+Space** opens a floating glass search panel with a pop-in animation.
 - Apps come from an in-memory app index (instant). Files come from Spotlight's index using a fast word-prefix query (2+ characters). Things you opened before always appear (usage history).
 - Ranking: match quality (prefix > word-prefix > substring) + how often and how recently you open it + a small bonus for apps. Top 8 shown.
-- Ignores case and accents. Excludes `~/Library` and hidden paths. Usage history in `~/Library/Application Support/BetterLauncher/usage.json`.
+- Ignores case and accents. Excludes `~/Library` and hidden paths. Usage history in `~/Library/Application Support/Butterlight/usage.json`.
 - Menu-bar menu warns if Spotlight's own Cmd+Space shortcut is still on.
 - Specs/plans: `docs/superpowers/specs/2026-10-08-launcher-design.md`, `docs/superpowers/plans/2026-10-08-launcher.md`.
 
-### Part 2, Stage A: BetterFiles core browser (Finder replacement), built, awaiting manual smoke test
+### Part 2, Stage A: Butterfinder core browser (Finder replacement), built, awaiting manual smoke test
 - Explorer-style file manager: folder tree sidebar, editable address bar with breadcrumbs, details view with sortable columns, zoomable icon view with thumbnails, in-folder filter.
 - **Cut + Paste moves files** (Cut then Paste into another folder). If something else is copied in between, Paste copies instead. Failed items stay on the clipboard for retry.
 - Delete goes to the Trash (never permanent). Nothing is ever overwritten (`name 2.ext`, `name copy.ext`).
@@ -24,7 +26,7 @@ Two pieces, built one at a time, each with its own spec and plan.
 - Spec: `docs/superpowers/specs/2026-10-08-files-stage-a-design.md`. Plan: `docs/superpowers/plans/2026-10-08-files-stage-a.md`.
 
 ### Polish round (2026-10-09)
-- Launcher: sliding highlight, blur-in open, async icons, debounced search, instant dismiss; folders open in BetterFiles, Cmd+Return shows the item in Files; results ordered by last used; launch at login.
+- Launcher: sliding highlight, blur-in open, async icons, debounced search, instant dismiss; folders open in Butterfinder, Cmd+Return shows the item in Files; results ordered by last used; launch at login.
 - Files: right-click menu, New Folder, Delete to Trash, preview pane (Quick Look), Space for Quick Look, drag and drop, tabs, folder fade.
 - `run.sh` starts dev builds detached; `package.sh` installs both `.app`s into ~/Applications.
 
@@ -35,8 +37,8 @@ Two pieces, built one at a time, each with its own spec and plan.
 
 ## Run
 
-Launcher: untick Spotlight's shortcut (System Settings > Keyboard > Keyboard Shortcuts > Spotlight), then `swift run BetterLauncher`.
-Files: `swift run BetterFiles`.
+Launcher: untick Spotlight's shortcut (System Settings > Keyboard > Keyboard Shortcuts > Spotlight), then `swift run Butterlight`.
+Files: `swift run Butterfinder`.
 
 ## Remaining
 
@@ -60,10 +62,10 @@ Files: `swift run BetterFiles`.
 - [ ] Package as a real `.app` and add launch-at-login. Both apps run as bare executables for now.
 - [ ] Search is capped at 300 file hits per query, so a very common word can miss the best file. Move to our own index (FSEvents + SQLite FTS) if Spotlight's index is the limit.
 
-### Next stages for BetterFiles
+### Next stages for Butterfinder
 - [ ] Stage B: tabs.
 - [ ] Stage C: dual pane.
-- [ ] Stage D: make it the default for folders, Dock/login setup, launcher integration (type a folder name to open it in BetterFiles).
+- [ ] Stage D: make it the default for folders, Dock/login setup, launcher integration (type a folder name to open it in Butterfinder).
 - Note: Finder can't be uninstalled (SIP). The plan is an app that opens for folders and gets a shortcut and Dock icon.
 
 ### Not planned (add only if wanted)

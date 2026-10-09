@@ -48,7 +48,7 @@ struct DetailsView: NSViewRepresentable {
         table.rowHeight = 28
         table.allowsMultipleSelection = true
         table.allowsColumnReordering = true
-        table.autosaveName = "BetterFilesDetails"
+        table.autosaveName = "ButterfinderDetails"
         table.autosaveTableColumns = true
 
         for (column, title, width) in [(Column.name, "Name", 380.0), (.modified, "Date modified", 170),

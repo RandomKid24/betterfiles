@@ -9,8 +9,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let hotkey = Hotkey()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("BetterLauncher")
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let dir = support.appendingPathComponent("Butterlight")
+        let old = support.appendingPathComponent("BetterLauncher")   // pre-rename name: keep the history
+        if FileManager.default.fileExists(atPath: old.path), !FileManager.default.fileExists(atPath: dir.path) {
+            try? FileManager.default.moveItem(at: old, to: dir)
+        }
         let model = Model(usage: Usage(url: dir.appendingPathComponent("usage.json")))
         controller = PanelController(model: model)
 
@@ -22,7 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let ok = registered && !SpotlightShortcut.isEnabled(symbolic)
 
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: "BetterLauncher")
+        item.button?.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: "Butterlight")
         let menu = NSMenu()
         // action: nil makes this a disabled, informational line.
         menu.addItem(withTitle: ok
