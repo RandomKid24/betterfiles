@@ -138,6 +138,7 @@ struct LauncherView: View {
                     }
                 }
                 .animation(.spring(response: 0.28, dampingFraction: 0.82), value: model.selected)
+                Divider().padding(.horizontal, 16)
                 HStack(spacing: 12) {
                     Text("\u{21A9} Open")
                     if model.pathMode { Text("\u{21E5} Complete") }
@@ -151,6 +152,7 @@ struct LauncherView: View {
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .padding(.horizontal, 20)
+                .padding(.top, 8)
                 .padding(.bottom, 10)
             }
         }

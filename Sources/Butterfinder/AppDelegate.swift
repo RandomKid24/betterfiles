@@ -15,12 +15,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let hosting = NSHostingController(rootView: BrowserView(tabs: tabs))
         hosting.sizingOptions = [] // the window decides its size, not the SwiftUI content
         window = NSWindow(contentViewController: hosting)
-        window.setContentSize(NSSize(width: 1100, height: 700))
+        window.setContentSize(NSSize(width: 1280, height: 800))
         window.title = "Butterfinder"
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.toolbarStyle = .unified
-        window.setFrameAutosaveName("ButterfinderMain")
+        window.setFrameAutosaveName("ButterfinderWindow")
         LoginItem.enableOnFirstRun()
         // Started by macOS at login: stay quiet in the background until a window is wanted (Dock click or the launcher).
         if LoginItem.launchedAtLogin {
@@ -31,11 +31,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         // Paths from the launcher: as an argument when we were started for it, as a notification when already running.
-        let args = CommandLine.arguments.dropFirst()
-        if let first = args.first {
-            if first == "--select", args.count > 1 { model.show(path: args[args.startIndex + 1], select: true) }
-            else { model.show(path: first, select: false) }
+        // Only real paths count: anything starting with "-" is a flag (ours or macOS's), never a folder.
+        let args = Array(CommandLine.arguments.dropFirst())
+        if let i = args.firstIndex(of: "--select"), args.indices.contains(i + 1) {
+            model.show(path: args[i + 1], select: true)
+        } else if let path = args.first(where: { !$0.hasPrefix("-") && $0.hasPrefix("/") }) {
+            model.show(path: path, select: false)
         }
+        // Developer options (used for README screenshots): `--split <folder>` opens the second pane there,
+        // `--open-settings [general|appearance|shortcuts]` opens Settings.
+        let cli = CommandLine.arguments
+        if let i = cli.firstIndex(of: "--split"), cli.indices.contains(i + 1) {
+            tabs.current.toggleSplit()
+            tabs.current.secondary?.navigate(to: URL(fileURLWithPath: cli[i + 1]))
+        }
+        if cli.contains("--open-settings") { SettingsWindow.show() }
         DistributedNotificationCenter.default().addObserver(forName: Notification.Name("com.butterfinder.open"), object: nil, queue: .main) { [weak self] n in
             guard let path = n.userInfo?["path"] as? String else { return }
             let select = n.userInfo?["select"] as? Bool ?? false

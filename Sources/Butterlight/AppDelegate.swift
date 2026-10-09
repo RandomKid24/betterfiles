@@ -18,6 +18,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let model = Model(usage: Usage(url: dir.appendingPathComponent("usage.json")))
         controller = PanelController(model: model)
         LoginItem.enableOnFirstRun()
+        // Developer option: `--demo-query "text"` opens the launcher with that text typed (used for README screenshots).
+        let args = CommandLine.arguments
+        if let i = args.firstIndex(of: "--demo-query"), args.indices.contains(i + 1) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+                self?.controller.show()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { model.text = args[i + 1] }
+            }
+        }
 
         // RegisterEventHotKey succeeds even while Spotlight owns Cmd+Space, so check Spotlight's setting too.
         let symbolic = UserDefaults(suiteName: "com.apple.symbolichotkeys")?.dictionary(forKey: "AppleSymbolicHotKeys")

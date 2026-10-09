@@ -48,11 +48,12 @@ struct DetailsView: NSViewRepresentable {
         table.rowHeight = 28
         table.allowsMultipleSelection = true
         table.allowsColumnReordering = true
-        table.autosaveName = "ButterfinderDetails"
+        table.autosaveName = "ButterfinderDetails2"
+        table.columnAutoresizingStyle = .firstColumnOnlyAutoresizingStyle   // the Name column absorbs width changes
         table.autosaveTableColumns = true
 
-        for (column, title, width) in [(Column.name, "Name", 380.0), (.modified, "Date modified", 170),
-                                       (.created, "Date created", 170), (.size, "Size", 90), (.kind, "Kind", 160)] {
+        for (column, title, width) in [(Column.name, "Name", 300.0), (.modified, "Date modified", 160),
+                                       (.created, "Date created", 160), (.size, "Size", 80), (.kind, "Kind", 120)] {
             let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(column.rawValue))
             col.title = title
             col.width = width

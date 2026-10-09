@@ -18,15 +18,15 @@ struct AddressBar: View {
                     .onExitCommand { editing = false }
                     .onChange(of: focused) { if !focused { editing = false } }
             } else {
-                HStack(spacing: 2) {
-                    ForEach(AddressPath.breadcrumbs(model.url)) { crumb in
-                        Button(crumb.name) { model.navigate(to: crumb.url) }.buttonStyle(.plain)
-                        if crumb.url.path != model.url.path {
-                            Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.secondary)
-                        }
+                // Shows as much of the path as fits: the whole thing, else "…" plus the last few folders.
+                let all = AddressPath.breadcrumbs(model.url)
+                ViewThatFits(in: .horizontal) {
+                    ForEach(Array(Set([all.count, 3, 2, 1].filter { $0 <= all.count && $0 > 0 })).sorted(by: >), id: \.self) { n in
+                        crumbs(all, last: n)
                     }
-                    Spacer(minLength: 0)
                 }
+                .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+                .clipped()
                 .contentShape(Rectangle())
                 .onTapGesture(perform: beginEditing)
             }
@@ -36,6 +36,22 @@ struct AddressBar: View {
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .modifier(Shake(amount: shakes))
         .onChange(of: model.addressFocusToken) { beginEditing() }
+    }
+
+    private func crumbs(_ all: [Crumb], last n: Int) -> some View {
+        HStack(spacing: 2) {
+            if n < all.count {
+                Button("\u{2026}") { model.navigate(to: all[all.count - n - 1].url) }.buttonStyle(.plain).foregroundStyle(.secondary)
+                Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.secondary)
+            }
+            ForEach(Array(all.suffix(n))) { crumb in
+                Button(crumb.name) { model.navigate(to: crumb.url) }.buttonStyle(.plain).lineLimit(1)
+                if crumb.url.path != model.url.path {
+                    Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.secondary)
+                }
+            }
+        }
+        .fixedSize()
     }
 
     private func beginEditing() {

@@ -23,9 +23,10 @@ struct SettingsView: View {
     @Bindable private var s = Settings.shared
     @Bindable private var prefs = Prefs.shared
     @State private var login = LoginItem.isEnabled
+    @State private var tab = CommandLine.arguments.drop { $0 != "--open-settings" }.dropFirst().first(where: { !$0.hasPrefix("-") }) ?? "general"
 
     var body: some View {
-        TabView {
+        TabView(selection: $tab) {
             Form {
                 Section("Files") {
                     Toggle("Show hidden files", isOn: $s.showHidden)
@@ -47,7 +48,7 @@ struct SettingsView: View {
                 }
             }
             .formStyle(.grouped)
-            .tabItem { Label("General", systemImage: "gearshape") }
+            .tabItem { Label("General", systemImage: "gearshape") }.tag("general")
 
             Form {
                 Section("Theme") { ThemePicker(selection: $s.themeID) }
@@ -64,7 +65,7 @@ struct SettingsView: View {
                 }
             }
             .formStyle(.grouped)
-            .tabItem { Label("Appearance", systemImage: "paintpalette") }
+            .tabItem { Label("Appearance", systemImage: "paintpalette") }.tag("appearance")
 
             Form {
                 Section("Navigation") {
@@ -88,7 +89,7 @@ struct SettingsView: View {
                 }
             }
             .formStyle(.grouped)
-            .tabItem { Label("Shortcuts", systemImage: "keyboard") }
+            .tabItem { Label("Shortcuts", systemImage: "keyboard") }.tag("shortcuts")
         }
         .frame(width: 520, height: 480)
     }

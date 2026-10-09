@@ -254,7 +254,8 @@ struct SidebarView: NSViewRepresentable {
             var node = root
             syncing = true
             defer { syncing = false }
-            ov.expandItem(root)
+            // Only open a place when the target is inside it; selecting Home itself shouldn't unfold every sub-folder.
+            if path != root.url.standardizedFileURL.path { ov.expandItem(root) }
             let relative = path.dropFirst(root.url.standardizedFileURL.path == "/" ? 1 : root.url.standardizedFileURL.path.count)
             for part in relative.split(separator: "/") {
                 guard let next = node.loadChildren().first(where: { $0.name == String(part) }) else { break }

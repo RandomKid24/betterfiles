@@ -2,9 +2,11 @@
 # Builds release apps and installs Butterlight.app and Butterfinder.app into ~/Applications.
 set -e
 cd "$(dirname "$0")"
-swift build -c release
-BIN="$(swift build -c release --show-bin-path)"
-DEST="$HOME/Applications"
+swift build -c release $ARCHS
+BIN="$(swift build -c release $ARCHS --show-bin-path)"
+DEST="${DEST:-$HOME/Applications}"   # override to build somewhere else
+ARCHS="${ARCHS:-}"                      # e.g. "--arch arm64 --arch x86_64" for a universal build
+VERSION="${VERSION:-1.0.0}"
 mkdir -p "$DEST"
 
 make_app() { # name  bundle-id  extra-plist
@@ -22,8 +24,8 @@ make_app() { # name  bundle-id  extra-plist
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundleIdentifier</key><string>$2</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleVersion</key><string>1</string>
-<key>CFBundleShortVersionString</key><string>1.0</string>
+<key>CFBundleVersion</key><string>$VERSION</string>
+<key>CFBundleShortVersionString</key><string>$VERSION</string>
 <key>LSMinimumSystemVersion</key><string>26.0</string>
 <key>NSPrincipalClass</key><string>NSApplication</string>
 <key>NSHighResolutionCapable</key><true/>

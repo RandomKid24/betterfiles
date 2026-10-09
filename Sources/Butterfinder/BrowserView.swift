@@ -32,15 +32,15 @@ struct TabContent: View {
                 .navigationSplitViewColumnWidth(min: 180, ideal: 230, max: 340)
         } detail: {
             HStack(spacing: 0) {
-                Pane(model: tab.primary, onNewTab: onNewTab, highlight: tab.secondary != nil && !tab.secondaryActive)
+                Pane(model: tab.primary, onNewTab: onNewTab, highlight: tab.secondary != nil && !tab.secondaryActive, compact: tab.secondary != nil)
                 if let second = tab.secondary {
                     Divider()
-                    Pane(model: second, onNewTab: onNewTab, highlight: tab.secondaryActive)
+                    Pane(model: second, onNewTab: onNewTab, highlight: tab.secondaryActive, compact: true)
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
-                if active.showPreview {
+                if active.showPreview && tab.secondary == nil {   // two panes need the room
                     Divider()
-                    PreviewPane(items: active.selectedItems, onClose: { active.togglePreview() }).frame(width: 300)
+                    PreviewPane(items: active.selectedItems, onClose: { active.togglePreview() }).frame(width: 280)
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
             }
@@ -62,12 +62,13 @@ struct Pane: View {
     @Bindable var model: BrowserModel
     let onNewTab: () -> Void
     let highlight: Bool
+    var compact = false   // split view: fewer toolbar buttons per pane
 
     var body: some View {
         let settings = Settings.shared
         let rev = settings.revision
         VStack(spacing: 0) {
-            TopBar(model: model, onNewTab: onNewTab)
+            TopBar(model: model, onNewTab: onNewTab, compact: compact)
                 .simultaneousGesture(TapGesture().onEnded { model.onActivate() })
             Divider()
             ZStack {
@@ -132,6 +133,7 @@ struct ToolButton: View {
 struct TopBar: View {
     @Bindable var model: BrowserModel
     let onNewTab: () -> Void
+    var compact = false
     @FocusState private var filterFocused: Bool
 
     var body: some View {
@@ -154,21 +156,23 @@ struct TopBar: View {
                 }
             }
             .padding(.horizontal, 8).padding(.vertical, 5)
-            .frame(width: 170)
+            .frame(minWidth: 100, idealWidth: 170, maxWidth: 170)
             .background(Color.primary.opacity(filterFocused ? 0.1 : 0.06), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Settings.shared.theme.accentColor.opacity(filterFocused ? 0.8 : 0), lineWidth: 1.5))
             .animation(.easeOut(duration: 0.15), value: filterFocused)
             if model.viewMode == .icons {
-                Slider(value: Binding(get: { model.zoom }, set: { model.setZoom($0) }), in: 32...256).frame(width: 100)
+                Slider(value: Binding(get: { model.zoom }, set: { model.setZoom($0) }), in: 32...256).frame(width: 80)
                     .transition(.opacity)
             }
             HStack(spacing: 2) {
                 ToolButton(symbol: "list.bullet", help: "Details (\u{2318}1)", active: model.viewMode == .details) { model.setViewMode(.details) }
                 ToolButton(symbol: "square.grid.2x2", help: "Icons (\u{2318}2)", active: model.viewMode == .icons) { model.setViewMode(.icons) }
             }
-            ToolButton(symbol: "sidebar.right", help: "Preview pane (\u{21E7}\u{2318}P)", active: model.showPreview) { model.togglePreview() }
-            ToolButton(symbol: "plus.square.on.square", help: "New tab (\u{2318}T)", action: onNewTab)
-            ToolButton(symbol: "gearshape", help: "Settings (\u{2318},)") { SettingsWindow.show() }
+            if !compact {
+                ToolButton(symbol: "sidebar.right", help: "Preview pane (\u{21E7}\u{2318}P)", active: model.showPreview) { model.togglePreview() }
+                ToolButton(symbol: "plus.square.on.square", help: "New tab (\u{2318}T)", action: onNewTab)
+                ToolButton(symbol: "gearshape", help: "Settings (\u{2318},)") { SettingsWindow.show() }
+            }
         }
         .animation(.smooth(duration: 0.2), value: model.viewMode)
         .padding(.horizontal, 10).padding(.vertical, 7)

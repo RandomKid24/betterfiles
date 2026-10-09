@@ -15,8 +15,9 @@ enum FilesBridge {
         let args = select ? ["--select", path] : [path]
         let p = Process()
         if Bundle.main.bundlePath.hasSuffix(".app") {
-            // Installed: Butterfinder.app sits next to Butterlight.app.
-            let app = Bundle.main.bundleURL.deletingLastPathComponent().appendingPathComponent("Butterfinder.app")
+            // Installed: wherever macOS knows Butterfinder is, else next to this app.
+            let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.butterfinder.app")
+                ?? Bundle.main.bundleURL.deletingLastPathComponent().appendingPathComponent("Butterfinder.app")
             p.executableURL = URL(fileURLWithPath: "/usr/bin/open")
             p.arguments = ["-a", app.path, "--args"] + args
         } else {
