@@ -1,5 +1,4 @@
 import AppKit
-import ServiceManagement
 import SwiftUI
 import Observation
 import Shared
@@ -47,8 +46,8 @@ enum LauncherSettingsWindow {
 
 struct LauncherSettingsView: View {
     @Bindable private var s = LSettings.shared
-    @State private var login = SMAppService.mainApp.status == .enabled
-    private let installed = Bundle.main.bundlePath.hasSuffix(".app")
+    @State private var login = LoginItem.isEnabled
+    private let installed = LoginItem.available
 
     var body: some View {
         Form {
@@ -70,8 +69,8 @@ struct LauncherSettingsView: View {
             }
             Section("System") {
                 Toggle("Open at login", isOn: Binding(get: { login }, set: { on in
-                    if on { try? SMAppService.mainApp.register() } else { try? SMAppService.mainApp.unregister() }
-                    login = SMAppService.mainApp.status == .enabled
+                    LoginItem.set(on)
+                    login = LoginItem.isEnabled
                 }))
                 .disabled(!installed)
                 if !installed { Text("Install the app with package.sh to enable this.").font(.caption).foregroundStyle(.secondary) }

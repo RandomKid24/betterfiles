@@ -22,6 +22,7 @@ enum SettingsWindow {
 struct SettingsView: View {
     @Bindable private var s = Settings.shared
     @Bindable private var prefs = Prefs.shared
+    @State private var login = LoginItem.isEnabled
 
     var body: some View {
         TabView {
@@ -31,6 +32,13 @@ struct SettingsView: View {
                     Toggle("Keep folders above files", isOn: $s.foldersFirst)
                     Toggle("Remember view, sort and zoom for each folder", isOn: $s.perFolderView)
                     Toggle("Ask before moving to the Trash", isOn: $s.confirmTrash)
+                }
+                Section("Startup") {
+                    Toggle("Open at login (runs quietly in the background)", isOn: Binding(get: { login }, set: { on in
+                        LoginItem.set(on)
+                        login = LoginItem.isEnabled
+                    }))
+                    .disabled(!LoginItem.available)
                 }
                 Section("Window") {
                     Toggle("Show preview pane", isOn: $prefs.showPreview)

@@ -21,8 +21,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         window.titleVisibility = .hidden
         window.toolbarStyle = .unified
         window.setFrameAutosaveName("ButterfinderMain")
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate()
+        LoginItem.enableOnFirstRun()
+        // Started by macOS at login: stay quiet in the background until a window is wanted (Dock click or the launcher).
+        if LoginItem.launchedAtLogin {
+            NSApp.setActivationPolicy(.regular)
+        } else {
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate()
+        }
 
         // Paths from the launcher: as an argument when we were started for it, as a notification when already running.
         let args = CommandLine.arguments.dropFirst()
@@ -44,6 +50,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // "Open With > Butterfinder" on a folder.
     func application(_ app: NSApplication, open urls: [URL]) {
         if let url = urls.first { model.show(path: url.path, select: false) }
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag { window.makeKeyAndOrderFront(nil) }
+        return true
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
