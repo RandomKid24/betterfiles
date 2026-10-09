@@ -1,9 +1,10 @@
 import AppKit
 import SwiftUI
+import FilesCore
 import Shared
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let tabs = Tabs()
     private var model: BrowserModel { tabs.current.active }
     private var window: NSWindow!
@@ -53,6 +54,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if NSApp.keyWindow?.firstResponder is NSText { return } // Cmd+Delete belongs to the text field while editing
         model.trashSelection()
     }
+    @objc private func duplicate() { model.duplicate() }
+    @objc private func makeAlias() { model.makeAlias() }
+    @objc private func sortBy(_ i: NSMenuItem) { if let c = Column(rawValue: i.representedObject as? String ?? "") { model.setSort(c, ascending: model.ascending) } }
+    @objc private func toggleOrder() { model.setSort(model.sortColumn, ascending: !model.ascending) }
+    @objc private func goRecent(_ i: NSMenuItem) { if let u = i.representedObject as? URL { model.navigate(to: u) } }
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+        for url in Recents.shared.urls {
+            let i = menu.addItem(withTitle: url.path == "/" ? "/" : url.lastPathComponent, action: #selector(goRecent(_:)), keyEquivalent: "")
+            i.target = self
+            i.representedObject = url
+            i.toolTip = url.path
+        }
+        if menu.items.isEmpty { menu.addItem(withTitle: "No recent folders", action: nil, keyEquivalent: "").isEnabled = false }
+    }
+
     @objc private func openSettings() { SettingsWindow.show() }
     @objc private func toggleHidden() { Settings.shared.showHidden.toggle() }
     @objc private func undo() {
@@ -115,6 +133,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             item("New Folder", #selector(newFolder), "n", mods: [.command, .shift], target: self),
             item("Move to Trash", #selector(trash), "\u{8}", target: self),
             item("Get Info", #selector(getInfo), "i", target: self),
+            item("Duplicate", #selector(duplicate), "d", target: self),
+            item("Make Alias", #selector(makeAlias), "a", mods: [.command, .control], target: self),
             item("Compress", #selector(compress), target: self),
             .separator(),
             item("Copy Path", #selector(copyPath), "c", mods: [.command, .option], target: self),
@@ -147,6 +167,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             item("Address Bar", #selector(focusAddress), "l", target: self),
             item("Filter", #selector(focusFilter), "f", target: self),
         ])
+        // Sort By (View menu) and Recent Folders (Go menu) are submenus.
+        if let view = main.items.first(where: { $0.submenu?.title == "View" })?.submenu {
+            let sort = NSMenuItem(title: "Sort By", action: nil, keyEquivalent: "")
+            let sub = NSMenu(title: "Sort By")
+            for (title, col) in [("Name", Column.name), ("Date Modified", .modified), ("Size", .size), ("Kind", .kind)] {
+                let i = sub.addItem(withTitle: title, action: #selector(sortBy(_:)), keyEquivalent: "")
+                i.target = self
+                i.representedObject = col.rawValue
+            }
+            sub.addItem(.separator())
+            sub.addItem(withTitle: "Reverse Order", action: #selector(toggleOrder), keyEquivalent: "").target = self
+            sort.submenu = sub
+            view.insertItem(sort, at: 2)
+        }
+        if let go = main.items.first(where: { $0.submenu?.title == "Go" })?.submenu {
+            let recent = NSMenuItem(title: "Recent Folders", action: nil, keyEquivalent: "")
+            let sub = NSMenu(title: "Recent Folders")
+            sub.delegate = self
+            recent.submenu = sub
+            go.insertItem(recent, at: 3)
+        }
         add("Window", [item("Minimize", #selector(NSWindow.performMiniaturize(_:)), "m")])
         NSApp.mainMenu = main
     }

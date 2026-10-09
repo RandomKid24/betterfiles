@@ -25,7 +25,9 @@ final class BrowserModel: Identifiable {
     var infoURLs: [URL] = []
     var showBatchRename = false
     var batchItems: [FileItem] = []
-    @ObservationIgnored var onActivate: () -> Void = {}   // set by the tab: marks this pane as the active one
+    @ObservationIgnored var onActivate: () -> Void = {}
+    @ObservationIgnored var onOpenInNewTab: (URL) -> Void = { _ in }       // set by the tab
+    @ObservationIgnored var onOpenInOtherPane: (URL) -> Void = { _ in }   // set by the tab: marks this pane as the active one
     @ObservationIgnored private var watcher: FolderWatcher?
     @ObservationIgnored private static let undoStack = UndoStack()
     @ObservationIgnored private static var busy = false
@@ -65,6 +67,7 @@ final class BrowserModel: Identifiable {
         if target.path != url.path {
             if recordHistory { backStack.append(url); forwardStack.removeAll() }
             url = target
+            Recents.shared.add(target)
             selection = []
             filter = ""
             status = nil
@@ -285,6 +288,42 @@ final class BrowserModel: Identifiable {
     }
 
     func quickLook() { QuickLook.shared.toggle(selectedItems.map(\.url)) }
+
+    func duplicate() {
+        let urls = selectedItems.map(\.url)
+        guard !urls.isEmpty else { return }
+        let folder = url
+        background("Duplicating\u{2026}", { FileOps.copy(urls, to: folder) }) { out in
+            Self.undoStack.recordCreated("duplicate", out)
+            self.selection = Set(out.compactMap(\.destination))
+            self.report(out, done: "Duplicated \(self.count(urls.count))", failed: "duplicate")
+        }
+    }
+
+    func makeAlias() {
+        let out = selectedItems.map { FileOps.makeAlias(of: $0.url) }
+        guard !out.isEmpty else { return }
+        Self.undoStack.recordCreated("make alias", out)
+        selection = Set(out.compactMap(\.destination))
+        report(out, done: "Made \(count(out.count)) alias" + (out.count == 1 ? "" : "es"), failed: "make an alias of")
+        reload()
+    }
+
+    func revealInFinder() {
+        NSWorkspace.shared.activateFileViewerSelecting(selection.isEmpty ? [url] : Array(selection))
+    }
+
+    func openWith(_ app: URL) {
+        NSWorkspace.shared.open(selectedItems.map(\.url), withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())
+    }
+
+    func openFolderInNewTab() {
+        for f in selectedItems where f.isFolder { onOpenInNewTab(f.url) }
+    }
+
+    func openFolderInOtherPane() {
+        if let f = selectedItems.first(where: \.isFolder) { onOpenInOtherPane(f.url) }
+    }
 
     func undo() {
         status = Self.undoStack.undo() ?? "Nothing to undo."

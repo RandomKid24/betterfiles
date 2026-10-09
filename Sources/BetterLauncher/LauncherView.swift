@@ -21,7 +21,18 @@ enum Icons {
 struct Row: View {
     let row: LRow
     let selected: Bool
+    let number: Int?          // 1...9: the Cmd+number shortcut
+    let query: String         // highlighted inside the title
     @State private var icon: NSImage?
+
+    private var title: AttributedString {
+        var a = AttributedString(row.title)
+        if row.path != nil, !query.isEmpty, let r = a.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) {
+            a[r].foregroundColor = LSettings.shared.theme.accentColor
+            a[r].font = .system(size: 14, weight: .bold)
+        }
+        return a
+    }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -36,10 +47,16 @@ struct Row: View {
             .scaleEffect(selected ? 1.1 : 1)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: selected)
             VStack(alignment: .leading, spacing: 1) {
-                Text(row.title).font(.system(size: 14, weight: .medium)).lineLimit(1)
-                Text(row.subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                Text(title).font(.system(size: 14, weight: .medium)).lineLimit(1)
+                Text(row.subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
             }
-            Spacer()
+            Spacer(minLength: 8)
+            if !row.kind.isEmpty {
+                Text(row.kind).font(.caption2).foregroundStyle(.secondary)
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(Color.primary.opacity(0.07), in: Capsule())
+            }
+            if let number { Text("\u{2318}\(number)").font(.caption2).foregroundStyle(.tertiary).monospacedDigit() }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
@@ -62,7 +79,7 @@ struct LauncherView: View {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 20, weight: .medium))
                     .foregroundStyle(.secondary)
-                TextField("Search apps, files, folders", text: $model.text)
+                TextField("Search apps and files, or type / to browse", text: $model.text)
                     .textFieldStyle(.plain)
                     .font(.system(size: 22))
                     .focused($focused)
@@ -75,6 +92,12 @@ struct LauncherView: View {
                         if press.modifiers.contains(.shift) { model.openSelectedInTerminal(); return .handled }
                         return .ignored
                     }
+                    .onKeyPress(.tab, phases: .down) { _ in model.completeSelected() ? .handled : .ignored }
+                    .onKeyPress(characters: .decimalDigits, phases: .down) { press in
+                        guard press.modifiers.contains(.command), let n = press.characters.first.flatMap({ Int(String($0)) }), n > 0 else { return .ignored }
+                        model.jump(to: n)
+                        return .handled
+                    }
                     .onKeyPress(.delete, phases: .down) { press in
                         guard press.modifiers.contains(.command) else { return .ignored }
                         model.trashSelected()
@@ -86,30 +109,43 @@ struct LauncherView: View {
 
             if !model.rows.isEmpty {
                 Divider().padding(.horizontal, 16).transition(.opacity)
-                VStack(spacing: 2) {
-                    ForEach(Array(model.rows.enumerated()), id: \.element.id) { i, row in
-                        Row(row: row, selected: i == model.selected)
-                            .background {
-                                // One pill shared by all rows: it glides to the selected row instead of blinking.
-                                if i == model.selected {
-                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                        .fill(LSettings.shared.theme.accentColor.opacity(0.22))
-                                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                            .strokeBorder(LSettings.shared.theme.accentColor.opacity(0.35), lineWidth: 1))
-                                        .matchedGeometryEffect(id: "pill", in: highlight)
-                                }
+                ScrollViewReader { proxy in
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack(spacing: 2) {
+                            ForEach(Array(model.rows.enumerated()), id: \.element.id) { i, row in
+                                Row(row: row, selected: i == model.selected, number: i < 9 ? i + 1 : nil, query: model.highlight)
+                                    .background {
+                                        // One pill shared by all rows: it glides to the selected row instead of blinking.
+                                        if i == model.selected {
+                                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                                .fill(LSettings.shared.theme.accentColor.opacity(0.22))
+                                                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                                    .strokeBorder(LSettings.shared.theme.accentColor.opacity(0.35), lineWidth: 1))
+                                                .matchedGeometryEffect(id: "pill", in: highlight)
+                                        }
+                                    }
+                                    .id(row.id)
+                                    .onTapGesture { model.selected = i; model.openSelected() }
+                                    .contextMenu { RowMenu(model: model, row: row) }
                             }
-                            .onTapGesture { model.selected = i; model.openSelected() }
+                        }
+                        .padding(8)
+                    }
+                    // Fits the rows up to a cap; longer lists (a folder, say) scroll.
+                    .frame(height: min(CGFloat(model.rows.count) * 45 + 16, 400))
+                    .onChange(of: model.selected) {
+                        if model.rows.indices.contains(model.selected) { proxy.scrollTo(model.rows[model.selected].id) }
                     }
                 }
-                .padding(8)
                 .animation(.spring(response: 0.28, dampingFraction: 0.82), value: model.selected)
                 HStack(spacing: 12) {
                     Text("\u{21A9} Open")
-                    Text("\u{2318}\u{21A9} Show in Files")
-                    Text("\u{2325}\u{21A9} Copy path")
+                    if model.pathMode { Text("\u{21E5} Complete") }
+                    Text("\u{2318}\u{21A9} Files")
+                    Text("\u{2325}\u{21A9} Path")
                     Text("\u{21E7}\u{21A9} Terminal")
                     Text("\u{2318}\u{232B} Trash")
+                    Text("Right-click: more")
                     Spacer()
                 }
                 .font(.caption2)
@@ -138,5 +174,33 @@ struct LauncherView: View {
         .onKeyPress(.upArrow) { model.move(-1); return .handled }
         .onKeyPress(.escape) { model.onDismiss(); return .handled }
         .onChange(of: model.visible) { if model.visible { focused = true } }
+    }
+}
+
+/// Right-click menu for a result.
+struct RowMenu: View {
+    let model: Model
+    let row: LRow
+
+    var body: some View {
+        if row.path != nil {
+            Button("Open") { model.open(row) }
+            Button("Show in BetterFiles") { model.open(row, reveal: true) }
+            Button("Reveal in Finder") { model.revealInFinder(row) }
+            Menu("Open With") {
+                ForEach(model.appsFor(row), id: \.self) { app in
+                    Button(app.deletingPathExtension().lastPathComponent) { model.openWith(row, app) }
+                }
+            }
+            Divider()
+            Button("Copy Path") { model.copyPath(row) }
+            Button("Copy Name") { model.copyName(row) }
+            Button("Open in Terminal") { model.openInTerminal(row) }
+            Divider()
+            if model.canForget(row) { Button("Remove from Recents") { model.forget(row) } }
+            Button("Move to Trash", role: .destructive) { model.trash(row) }
+        } else if row.run != nil {
+            Button("Run") { model.open(row) }
+        }
     }
 }

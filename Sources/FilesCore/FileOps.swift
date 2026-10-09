@@ -52,6 +52,15 @@ public enum FileOps {
         return attempt(url, dest) { try FileManager.default.moveItem(at: url, to: dest) }
     }
 
+    /// Finder-style alias ("name alias") next to the original.
+    public static func makeAlias(of url: URL) -> OpOutcome {
+        let dest = unique(url.lastPathComponent + " alias", isFolder: true, in: url.deletingLastPathComponent(), style: .numbered)
+        return attempt(url, dest) {
+            let data = try url.bookmarkData(options: .suitableForBookmarkFile, includingResourceValuesForKeys: nil, relativeTo: nil)
+            try URL.writeBookmarkData(data, to: dest)
+        }
+    }
+
     /// Creates "New Folder" (or "New Folder 2", ...) in `folder`.
     public static func newFolder(in folder: URL) -> OpOutcome {
         let dest = unique("New Folder", isFolder: true, in: folder, style: .numbered)

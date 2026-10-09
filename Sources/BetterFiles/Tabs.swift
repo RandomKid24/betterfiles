@@ -8,9 +8,16 @@ final class Tab: Identifiable {
     private(set) var secondary: BrowserModel?
     private(set) var secondaryActive = false
 
+    @ObservationIgnored var onNewTab: (URL) -> Void = { _ in }
+
     init(start: URL) {
         primary = BrowserModel(start: start)
         wire(primary)
+    }
+
+    func openInOtherPane(_ url: URL) {
+        if secondary == nil { toggleSplit() }
+        (secondaryActive ? primary : secondary)?.navigate(to: url)
     }
 
     /// The pane that menu commands act on.
@@ -18,6 +25,8 @@ final class Tab: Identifiable {
     private var other: BrowserModel? { secondary == nil ? nil : (secondaryActive ? primary : secondary) }
 
     private func wire(_ m: BrowserModel) {
+        m.onOpenInNewTab = { [weak self] url in self?.onNewTab(url) }
+        m.onOpenInOtherPane = { [weak self] url in self?.openInOtherPane(url) }
         m.onActivate = { [weak self, weak m] in
             guard let self, let m else { return }
             self.secondaryActive = (m === self.secondary)
@@ -49,8 +58,12 @@ final class Tabs {
     private(set) var index = 0
     var current: Tab { all[index] }
 
-    func new() {
-        all.append(Tab(start: current.active.url))
+    init() { all[0].onNewTab = { [weak self] in self?.new(at: $0) } }
+
+    func new(at url: URL? = nil) {
+        let tab = Tab(start: url ?? current.active.url)
+        tab.onNewTab = { [weak self] in self?.new(at: $0) }
+        all.append(tab)
         index = all.count - 1
     }
 

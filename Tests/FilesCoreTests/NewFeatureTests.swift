@@ -55,4 +55,12 @@ final class NewFeatureTests: TempDirTestCase {
         XCTAssertEqual(Sorter.sort(items, by: .name, ascending: true).map(\.name), ["b", "a.txt"])
         XCTAssertEqual(Sorter.sort(items, by: .name, ascending: true, foldersFirst: false).map(\.name), ["a.txt", "b"])
     }
+
+    func testAliasResolvesToOriginal() throws {
+        let f = try touch("doc.txt", "hi")
+        let out = FileOps.makeAlias(of: f)
+        XCTAssertEqual(out.destination?.lastPathComponent, "doc.txt alias")
+        let resolved = try URL(resolvingAliasFileAt: out.destination!)
+        XCTAssertEqual(resolved.resolvingSymlinksInPath().path, f.resolvingSymlinksInPath().path)
+    }
 }

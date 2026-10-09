@@ -9,6 +9,8 @@ struct LRow: Identifiable {
     let subtitle: String
     var path: String? = nil
     var symbol: String? = nil
+    var kind = ""
+    var isFolder = false
     var run: (() -> Void)? = nil
 }
 
@@ -52,7 +54,7 @@ final class Model {
         searchTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(70))
             guard !Task.isCancelled, let self else { return }
-            guard LSettings.shared.searchFiles else { return }
+            guard LSettings.shared.searchFiles, !PathQuery.isPath(q) else { return }
             self.search.update(q)
             let hits = await Task.detached { self.index.search(q) }.value
             guard !Task.isCancelled else { return }
@@ -68,10 +70,19 @@ final class Model {
 
     private var selectedRow: LRow? { rows.indices.contains(selected) ? rows[selected] : nil }
 
+    /// Text after the last "/" in path mode, else the whole query: what to highlight in titles.
+    var highlight: String {
+        let t = text.trimmingCharacters(in: .whitespaces)
+        return PathQuery.isPath(t) ? String(t.split(separator: "/", omittingEmptySubsequences: false).last ?? "") : t
+    }
+
+    var pathMode: Bool { PathQuery.isPath(text) }
+
+    // MARK: actions (each works on any row so the right-click menu can use them too)
+
     /// Dismisses first so the panel never waits on the target app; the open happens off the main thread.
     /// Folders open in BetterFiles; `reveal` shows the item's folder there with the item selected.
-    func openSelected(reveal: Bool = false) {
-        guard let row = selectedRow else { return }
+    func open(_ row: LRow, reveal: Bool = false) {
         if let run = row.run { run(); onDismiss(); return }
         guard let path = row.path else { return }
         usage.record(path: path)
@@ -88,31 +99,72 @@ final class Model {
         }
     }
 
-    // Option+Return, Shift+Return: quick actions on the highlighted file.
-    func copyPathOfSelected() {
-        guard let path = selectedRow?.path else { return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(path, forType: .string)
+    func openSelected(reveal: Bool = false) { if let r = selectedRow { open(r, reveal: reveal) } }
+
+    /// Tab in path mode: fill in the highlighted entry (and step into it if it's a folder).
+    func completeSelected() -> Bool {
+        guard pathMode, let row = selectedRow, let path = row.path else { return false }
+        text = path + (row.isFolder ? "/" : "")
+        return true
+    }
+
+    func copyPath(_ row: LRow) { if let p = row.path { Self.copy(p); onDismiss() } }
+    func copyName(_ row: LRow) { if let p = row.path { Self.copy((p as NSString).lastPathComponent); onDismiss() } }
+
+    func revealInFinder(_ row: LRow) {
+        guard let p = row.path else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: p)])
         onDismiss()
     }
 
-    func openSelectedInTerminal() {
-        guard let path = selectedRow?.path else { return }
-        var isDir: ObjCBool = false
-        FileManager.default.fileExists(atPath: path, isDirectory: &isDir)
-        let folder = isDir.boolValue && !path.hasSuffix(".app") ? path : (path as NSString).deletingLastPathComponent
+    func openInTerminal(_ row: LRow) {
+        guard let path = row.path else { return }
+        let folder = row.isFolder ? path : (path as NSString).deletingLastPathComponent
         NSWorkspace.shared.open([URL(fileURLWithPath: folder)], withApplicationAt: URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app"),
                                 configuration: NSWorkspace.OpenConfiguration())
         onDismiss()
     }
 
-    func trashSelected() {
-        guard let path = selectedRow?.path else { return }
+    func appsFor(_ row: LRow) -> [URL] {
+        guard let p = row.path else { return [] }
+        return Array(NSWorkspace.shared.urlsForApplications(toOpen: URL(fileURLWithPath: p)).prefix(12))
+    }
+
+    func openWith(_ row: LRow, _ app: URL) {
+        guard let p = row.path else { return }
+        NSWorkspace.shared.open([URL(fileURLWithPath: p)], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())
+        onDismiss()
+    }
+
+    func canForget(_ row: LRow) -> Bool { row.path.map { usage.get($0) != nil } ?? false }
+
+    func forget(_ row: LRow) {
+        guard let p = row.path else { return }
+        usage.forget(p)
+        base = apps + usage.candidates()
+        rerank()
+    }
+
+    /// Moves to the Trash (recoverable) and drops it from the list at once.
+    func trash(_ row: LRow) {
+        guard let path = row.path else { return }
         try? FileManager.default.trashItem(at: URL(fileURLWithPath: path), resultingItemURL: nil)
+        usage.forget(path)
         raw.removeAll { $0.path == path }
         indexed.removeAll { $0.path == path }
         base.removeAll { $0.path == path }
         rerank()
+    }
+
+    // Keyboard shortcuts act on the highlighted row.
+    func copyPathOfSelected() { if let r = selectedRow { copyPath(r) } }
+    func openSelectedInTerminal() { if let r = selectedRow { openInTerminal(r) } }
+    func trashSelected() { if let r = selectedRow { trash(r) } }
+
+    func jump(to number: Int) {
+        guard rows.indices.contains(number - 1) else { return }
+        selected = number - 1
+        openSelected()
     }
 
     /// Called when the panel opens.
@@ -158,6 +210,15 @@ final class Model {
         return []
     }
 
+    private static func fileRow(_ c: Candidate, subtitle: String) -> LRow {
+        var kind = "File", folder = false
+        var isDir: ObjCBool = false
+        if c.isApp || c.path.hasSuffix(".app") { kind = "Application" }
+        else if FileManager.default.fileExists(atPath: c.path, isDirectory: &isDir), isDir.boolValue { kind = "Folder"; folder = true }
+        else { let ext = (c.path as NSString).pathExtension.uppercased(); if !ext.isEmpty { kind = ext } }
+        return LRow(id: c.path, title: c.name, subtitle: subtitle, path: c.path, kind: kind, isFolder: folder)
+    }
+
     private static func copy(_ s: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(s, forType: .string)
@@ -173,7 +234,14 @@ final class Model {
     private func rerank(keepSelection: Bool = true) {
         let previous = keepSelection ? selectedRow?.id : nil
         var out: [LRow]
-        if LSettings.shared.clipboard, let filter = clipMode {
+        if let (dir, items) = PathQuery.entries(for: text) {
+            // Typing a path browses folders instead of searching.
+            out = items.map { Self.fileRow($0, subtitle: (dir as NSString).abbreviatingWithTildeInPath) }
+            if out.isEmpty {
+                out = [LRow(id: "nopath", title: "Nothing in \((dir as NSString).abbreviatingWithTildeInPath) matches", subtitle: "Keep typing, or press Esc",
+                            symbol: "questionmark.folder")]
+            }
+        } else if LSettings.shared.clipboard, let filter = clipMode {
             out = clips.items.filter { filter.isEmpty || $0.lowercased().contains(filter) }.prefix(8).enumerated().map { i, item in
                 LRow(id: "clip\(i)\(item.hashValue)", title: item.replacingOccurrences(of: "\n", with: " "), subtitle: "Return to copy again",
                      symbol: "doc.on.clipboard", run: { Self.copy(item) })
@@ -182,7 +250,7 @@ final class Model {
             var seen = Set<String>()
             let all = (base + (LSettings.shared.searchFiles ? raw + indexed : [])).filter { seen.insert($0.path).inserted }
             let files = Ranker.rank(query: text, candidates: all, usage: usage.get, limit: LSettings.shared.maxResults)
-            out = actionRows() + files.map { LRow(id: $0.path, title: $0.name, subtitle: $0.parent, path: $0.path) }
+            out = actionRows() + files.map { Self.fileRow($0, subtitle: ($0.parent as NSString).abbreviatingWithTildeInPath) }
             let q = text.trimmingCharacters(in: .whitespaces)
             if out.isEmpty, LSettings.shared.webFallback, q.count >= 2, let url = URL(string: "https://www.google.com/search?q=" + (q.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? q)) {
                 out = [LRow(id: "web", title: "Search the web for \u{201C}\(q)\u{201D}", subtitle: "Return to open in your browser",

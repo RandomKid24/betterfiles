@@ -56,3 +56,17 @@ final class Prefs {
         didSet { UserDefaults.standard.set(showPreview, forKey: "showPreview") }
     }
 }
+
+/// Folders visited recently, for Go > Recent Folders.
+@MainActor
+final class Recents {
+    static let shared = Recents()
+    private(set) var urls: [URL] = (UserDefaults.standard.stringArray(forKey: "recents") ?? []).map { URL(fileURLWithPath: $0) }
+
+    func add(_ url: URL) {
+        urls.removeAll { $0 == url }
+        urls.insert(url, at: 0)
+        if urls.count > 12 { urls.removeLast() }
+        UserDefaults.standard.set(urls.map(\.path), forKey: "recents")
+    }
+}

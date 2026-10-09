@@ -34,6 +34,11 @@ public final class Usage {
         }
     }
 
+    /// "Remove from Recents": forget this item's history.
+    public func forget(_ path: String) {
+        if records.removeValue(forKey: path) != nil { save() }
+    }
+
     public func record(path: String, now: Date = Date()) {
         var r = records[path] ?? UsageRecord(count: 0, last: now)
         r.count += 1
