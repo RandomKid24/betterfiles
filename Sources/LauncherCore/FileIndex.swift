@@ -13,13 +13,19 @@ public final class FileIndex: @unchecked Sendable {
 
     public init() {}
 
-    public func isStale(after seconds: TimeInterval = 600) -> Bool {
+    /// True once a scan has finished and found something, so Spotlight isn't needed as a fallback.
+    public var isReady: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return builtAt != nil && !names.isEmpty
+    }
+
+    public func isStale(after seconds: TimeInterval = 1800) -> Bool {
         lock.lock(); defer { lock.unlock() }
         return builtAt.map { Date().timeIntervalSince($0) > seconds } ?? true
     }
 
     // ponytail: full rescan, capped so memory stays around 100 MB. Use FSEvents for incremental updates if rescans get slow.
-    public func build(root: String, cap: Int = 300_000) {
+    public func build(root: String, cap: Int = 150_000) {
         var n: [String] = [], p: [String] = []
         let url = URL(fileURLWithPath: root)
         if let e = FileManager.default.enumerator(at: url, includingPropertiesForKeys: [.isDirectoryKey],

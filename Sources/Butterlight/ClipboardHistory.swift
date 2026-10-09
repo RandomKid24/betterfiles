@@ -12,6 +12,7 @@ final class ClipboardHistory {
         timer = Timer.scheduledTimer(withTimeInterval: 0.7, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.poll() }
         }
+        timer?.tolerance = 0.6   // lets macOS batch these wakeups with others to save battery
     }
 
     private func poll() {

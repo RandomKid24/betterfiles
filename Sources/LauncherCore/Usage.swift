@@ -25,8 +25,14 @@ public final class Usage {
     public func get(_ path: String) -> UsageRecord? { records[path] }
 
     /// Everything opened before that still exists, so frequent items are always searchable instantly.
-    public func candidates() -> [Candidate] {
-        records.keys.compactMap { path in
+    public func candidates() -> [Candidate] { Self.candidates(paths: paths) }
+
+    /// Snapshot of the remembered paths (cheap, no disk access): take it on the owning thread.
+    public var paths: [String] { Array(records.keys) }
+
+    /// Checks the disk, so call it off the main thread with a snapshot from `paths`.
+    public static func candidates(paths: [String]) -> [Candidate] {
+        paths.compactMap { path in
             guard FileManager.default.fileExists(atPath: path) else { return nil }
             let isApp = path.hasSuffix(".app")
             let last = (path as NSString).lastPathComponent

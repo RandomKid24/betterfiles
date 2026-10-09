@@ -160,11 +160,9 @@ struct LauncherView: View {
         .background { if !LSettings.shared.glass { shape.fill(LSettings.shared.theme.surfaceColor ?? Color(nsColor: .windowBackgroundColor)) } }
         .glassEffect(LSettings.shared.glass ? .regular : .identity, in: shape)
         .overlay { shape.strokeBorder(LSettings.shared.theme.accentColor.opacity(0.25), lineWidth: 1) }
-        .shadow(color: .black.opacity(0.28), radius: 28, y: 12)
         // Pop in from slightly smaller and higher, like Spotlight; spring so it settles instead of stopping dead.
         .scaleEffect(model.visible ? 1 : 0.94, anchor: .top)
         .offset(y: model.visible ? 0 : -10)
-        .blur(radius: model.visible ? 0 : 14) // comes into focus as it lands
         .opacity(model.visible ? 1 : 0)
         // Springy on the way in, quick ease on the way out.
         // The results block grows/collapses smoothly; per-keystroke count changes deliberately don't animate.

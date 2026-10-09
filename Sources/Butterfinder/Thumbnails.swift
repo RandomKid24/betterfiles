@@ -3,7 +3,13 @@ import QuickLookThumbnailing
 
 @MainActor
 enum Thumbnails {
-    private static let cache = NSCache<NSString, NSImage>()
+    // Bounded: ~48 MB of pixels at most, so browsing huge photo folders can't balloon memory.
+    private static let cache: NSCache<NSString, NSImage> = {
+        let c = NSCache<NSString, NSImage>()
+        c.totalCostLimit = 48 * 1024 * 1024
+        c.countLimit = 600
+        return c
+    }()
 
     /// Thumbnails are requested, cached and matched to cells at this 32 pt granularity.
     static func bucket(for size: CGFloat) -> Int { Int(size / 32) * 32 }
@@ -24,7 +30,7 @@ enum Thumbnails {
             let image = NSImage(cgImage: rep.cgImage, size: .zero)
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
-                    cache.setObject(image, forKey: key as NSString)
+                    cache.setObject(image, forKey: key as NSString, cost: rep.cgImage.bytesPerRow * rep.cgImage.height)
                     completion(image)
                 }
             }

@@ -26,6 +26,7 @@ final class Model {
     @ObservationIgnored private let usage: Usage
     @ObservationIgnored private let clips = ClipboardHistory()
     @ObservationIgnored private let index = FileIndex()
+    @ObservationIgnored private var usageItems: [Candidate] = []   // history that still exists, checked off the main thread
     @ObservationIgnored private var apps: [Candidate] = []
     @ObservationIgnored private var base: [Candidate] = []   // apps + history: instant, no Spotlight
     @ObservationIgnored private var raw: [Candidate] = []    // streamed Spotlight hits
@@ -44,6 +45,7 @@ final class Model {
         clips.start()
         refreshApps()
         refreshIndex()
+        refreshUsage()
     }
 
     func textChanged() {
@@ -55,7 +57,8 @@ final class Model {
             try? await Task.sleep(for: .milliseconds(70))
             guard !Task.isCancelled, let self else { return }
             guard LSettings.shared.searchFiles, !PathQuery.isPath(q) else { return }
-            self.search.update(q)
+            // Our own index covers the home folder; Spotlight is only a fallback until the first scan finishes.
+            if !self.index.isReady { self.search.update(q) }
             let hits = await Task.detached { self.index.search(q) }.value
             guard !Task.isCancelled else { return }
             self.indexed = hits
@@ -86,6 +89,7 @@ final class Model {
         if let run = row.run { run(); onDismiss(); return }
         guard let path = row.path else { return }
         usage.record(path: path)
+        refreshUsage()
         onDismiss()
         Task.detached {
             var isDir: ObjCBool = false
@@ -141,7 +145,8 @@ final class Model {
     func forget(_ row: LRow) {
         guard let p = row.path else { return }
         usage.forget(p)
-        base = apps + usage.candidates()
+        usageItems.removeAll { $0.path == p }
+        base = apps + usageItems
         rerank()
     }
 
@@ -174,7 +179,7 @@ final class Model {
         indexed = []
         rows = []
         selected = 0
-        base = apps + usage.candidates()
+        base = apps + usageItems   // no disk access here: opening must feel instant
         refreshApps()
         if index.isStale() { refreshIndex() }
     }
@@ -186,10 +191,19 @@ final class Model {
         indexed = []
     }
 
+    /// Checking that each remembered path still exists touches the disk, so it happens in the background.
+    private func refreshUsage() {
+        let snapshot = usage.paths   // taken here on the main thread; only the disk checks run in the background
+        Task.detached(priority: .utility) {
+            let items = Usage.candidates(paths: snapshot)
+            await MainActor.run { self.usageItems = items; self.base = self.apps + items }
+        }
+    }
+
     private func refreshApps() {
         Task.detached {
             let found = AppIndex.scan()
-            await MainActor.run { self.apps = found; if self.base.isEmpty { self.base = found } }
+            await MainActor.run { self.apps = found; self.base = found + self.usageItems }
         }
     }
 
