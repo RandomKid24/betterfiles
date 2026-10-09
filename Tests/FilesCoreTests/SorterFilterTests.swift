@@ -9,6 +9,16 @@ final class SorterFilterTests: TempDirTestCase {
 
     func names(_ items: [FileItem]) -> [String] { items.map(\.name) }
 
+    func testLargeFolderSortAndFilterArePrompt() {
+        let items = (0..<10_000).map { item("file\($0).txt", kind: $0 % 2 == 0 ? "Text" : "Image") }
+        let start = Date()
+        _ = Sorter.sort(items, by: .name, ascending: true)
+        _ = Sorter.sort(Filter.filter(items, text: "9"), by: .kind, ascending: false)
+        let elapsed = Date().timeIntervalSince(start)
+        print("LARGE_SORT_SECONDS \(elapsed)")
+        XCTAssertLessThan(elapsed, 1.0)
+    }
+
     func testFoldersAlwaysFirstInBothDirections() {
         let items = [item("b.txt"), item("zdir", folder: true), item("a.txt"), item("adir", folder: true)]
         XCTAssertEqual(names(Sorter.sort(items, by: .name, ascending: true)), ["adir", "zdir", "a.txt", "b.txt"])

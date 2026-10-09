@@ -200,9 +200,12 @@ struct IconView: NSViewRepresentable {
             model.open(items[path.item])
         }
 
+        private var renaming: FileItem?
+
         func beginRename(_ cv: NSCollectionView) {
             guard let path = cv.selectionIndexPaths.first, let cell = cv.item(at: path) as? IconCell,
-                  let field = cell.textField else { return }
+                  let field = cell.textField, path.item < items.count else { return }
+            renaming = items[path.item]
             field.isEditable = true
             cv.window?.makeFirstResponder(field)
         }
@@ -210,10 +213,10 @@ struct IconView: NSViewRepresentable {
         func controlTextDidEndEditing(_ obj: Notification) {
             guard let field = obj.object as? NSTextField, let cv = collection else { return }
             field.isEditable = false
+            let item = renaming
+            renaming = nil
             cv.window?.makeFirstResponder(cv)
-            // Resolve the item from the field's own cell, not the selection: a click elsewhere can change the selection first.
-            guard let url = cv.visibleItems().compactMap({ $0 as? IconCell }).first(where: { $0.textField === field })?.representedURL,
-                  let item = items.first(where: { $0.url == url }) else { return }
+            guard let item else { return }
             if field.stringValue != item.name { model.rename(item, to: field.stringValue) } else { field.stringValue = item.name }
         }
     }

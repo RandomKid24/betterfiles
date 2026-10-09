@@ -154,7 +154,11 @@ struct SidebarView: NSViewRepresentable {
                 node = next
             }
             let row = ov.row(forItem: node)
-            if row >= 0 {
+            if node.url.standardizedFileURL.path != path {
+                // Target isn't in the tree: keep the ancestor visible but unselected so clicking it navigates.
+                if row >= 0 { ov.scrollRowToVisible(row) }
+                ov.deselectAll(nil)
+            } else if row >= 0 {
                 ov.selectRowIndexes([row], byExtendingSelection: false)
                 ov.scrollRowToVisible(row)
             }

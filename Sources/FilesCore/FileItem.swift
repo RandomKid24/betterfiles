@@ -8,10 +8,13 @@ public struct FileItem: Equatable, Hashable, Sendable {
     public let size: Int64?
     public let modified: Date?
     public let kind: String
+    /// File name including its extension (stored: sorting reads it per comparison).
+    public let name: String
 
     public init(url: URL, isFolder: Bool = false, isHidden: Bool = false, isPackage: Bool = false,
                 size: Int64? = nil, modified: Date? = nil, kind: String = "") {
         self.url = url
+        self.name = url.lastPathComponent
         self.isFolder = isFolder
         self.isHidden = isHidden
         self.isPackage = isPackage
@@ -19,7 +22,4 @@ public struct FileItem: Equatable, Hashable, Sendable {
         self.modified = modified
         self.kind = kind
     }
-
-    /// File name including its extension.
-    public var name: String { url.lastPathComponent }
 }

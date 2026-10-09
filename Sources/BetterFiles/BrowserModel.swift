@@ -54,6 +54,8 @@ final class BrowserModel {
             selection = []
             filter = ""
             status = nil
+            items = []; visible = []; message = nil
+            version += 1
         }
         reload()
     }

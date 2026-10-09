@@ -176,11 +176,15 @@ struct DetailsView: NSViewRepresentable {
 
         // MARK: in-place rename (F2)
 
+        private var renaming: FileItem?
+
         func beginRename(_ table: NSTableView) {
             let row = table.selectedRow
             let col = table.column(withIdentifier: NSUserInterfaceItemIdentifier(Column.name.rawValue))
             guard row >= 0, col >= 0, let cell = table.view(atColumn: col, row: row, makeIfNecessary: true) as? NSTableCellView,
                   let field = cell.textField else { return }
+            renaming = row < items.count ? items[row] : nil
+            guard renaming != nil else { return }
             field.isEditable = true
             table.window?.makeFirstResponder(field)
         }
@@ -188,10 +192,10 @@ struct DetailsView: NSViewRepresentable {
         func controlTextDidEndEditing(_ obj: Notification) {
             guard let field = obj.object as? NSTextField, let table else { return }
             field.isEditable = false
-            let row = table.row(for: field)
+            let item = renaming
+            renaming = nil
             table.window?.makeFirstResponder(table)
-            guard row >= 0, row < items.count else { return }
-            let item = items[row]
+            guard let item else { return }
             if field.stringValue != item.name { model.rename(item, to: field.stringValue) } else { field.stringValue = item.name }
         }
     }
