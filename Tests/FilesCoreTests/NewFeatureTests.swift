@@ -91,6 +91,24 @@ final class NewFeatureTests: TempDirTestCase {
         XCTAssertEqual(try f.resourceValues(forKeys: [.tagNamesKey]).tagNames, ["Red"])
         Tags.toggle("Red", on: [item()])
         XCTAssertEqual(try f.resourceValues(forKeys: [.tagNamesKey]).tagNames ?? [], [])
-        XCTAssertTrue(Filter.filter([FileItem(url: f, tags: ["Blue"])], text: "blue").count == 1)
+        let tagged = FileItem(url: dir.appendingPathComponent("plain.txt"), tags: ["Orange"])
+        XCTAssertEqual(Filter.filter([tagged], text: "or").count, 0)          // tags are not matched by plain text
+        XCTAssertEqual(Filter.filter([tagged], text: "tag:orange").count, 1)
+        XCTAssertEqual(Filter.filter([tagged], text: "#ora").count, 1)
+        XCTAssertEqual(Filter.filter([tagged], text: "#").count, 1)
+        XCTAssertEqual(Filter.filter([tagged], text: "#blue").count, 0)
+    }
+
+    func testFilterWordsMatchInAnyOrder() {
+        let items = ["Meeting notes.md", "Notes - weekly meeting.md", "budget.csv"].map { FileItem(url: dir.appendingPathComponent($0)) }
+        XCTAssertEqual(Filter.filter(items, text: "meeting notes").map(\.name), ["Meeting notes.md"])   // exact phrase wins
+        XCTAssertEqual(Filter.filter(items, text: "notes weekly").map(\.name), ["Notes - weekly meeting.md"])
+        XCTAssertEqual(Filter.filter(items, text: "  budget  ").map(\.name), ["budget.csv"])
+        // an exact phrase beats any-order matching
+        let numbered = ["file 12.txt", "file 21.txt"].map { FileItem(url: dir.appendingPathComponent($0)) }
+        XCTAssertEqual(Filter.filter(numbered, text: "file 1").map(\.name), ["file 12.txt"])
+        // words and tags combine
+        let mixed = [FileItem(url: dir.appendingPathComponent("a report.pdf"), tags: ["Red"]), FileItem(url: dir.appendingPathComponent("b report.pdf"))]
+        XCTAssertEqual(Filter.filter(mixed, text: "report #red").map(\.name), ["a report.pdf"])
     }
 }

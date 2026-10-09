@@ -9,6 +9,7 @@ final class BrowserModel: Identifiable {
     private(set) var url: URL
     private(set) var visible: [FileItem] = []
     private(set) var version = 0   // bumps whenever `visible` changes, so AppKit views know to reload
+    private(set) var totalCount = 0   // items in the folder before the filter
     private(set) var message: String?
     var status: String?
     private(set) var sortColumn: Column
@@ -159,6 +160,7 @@ final class BrowserModel: Identifiable {
     func recompute() {
         let st = Settings.shared
         let shown = st.showHidden ? items : items.filter { !$0.isHidden }
+        totalCount = shown.count
         visible = Sorter.sort(Filter.filter(shown, text: filter), by: sortColumn, ascending: ascending, foldersFirst: st.foldersFirst)
         selection = selection.intersection(Set(visible.map(\.url)))
         version += 1

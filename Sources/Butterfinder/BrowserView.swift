@@ -146,7 +146,7 @@ struct TopBar: View {
             AddressBar(model: model)
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(.secondary)
-                TextField("Filter", text: $model.filter)
+                TextField("Filter  (words, #tag)", text: $model.filter)
                     .textFieldStyle(.plain)
                     .focused($filterFocused)
                     .onChange(of: model.filter) { model.recompute() }
@@ -184,7 +184,7 @@ struct StatusBar: View {
     let model: BrowserModel
 
     private var summary: String {
-        var s = "\(model.visible.count) items"
+        var s = model.filter.isEmpty ? "\(model.visible.count) items" : "\(model.visible.count) of \(model.totalCount) items match"
         let picked = model.selectedItems
         if !picked.isEmpty {
             s += " \u{00B7} \(picked.count) selected"
