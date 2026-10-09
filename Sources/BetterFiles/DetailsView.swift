@@ -52,14 +52,16 @@ struct DetailsView: NSViewRepresentable {
         table.autosaveTableColumns = true
 
         for (column, title, width) in [(Column.name, "Name", 380.0), (.modified, "Date modified", 170),
-                                       (.size, "Size", 90), (.kind, "Kind", 160)] {
+                                       (.created, "Date created", 170), (.size, "Size", 90), (.kind, "Kind", 160)] {
             let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(column.rawValue))
             col.title = title
             col.width = width
             col.minWidth = 60
+            col.isHidden = column == .created   // off until chosen from the header menu
             col.sortDescriptorPrototype = NSSortDescriptor(key: column.rawValue, ascending: true)
             table.addTableColumn(col)
         }
+        table.headerView?.menu = c.headerMenu()
         table.dataSource = c
         table.delegate = c
         table.target = c
@@ -93,7 +95,7 @@ struct DetailsView: NSViewRepresentable {
     }
 
     @MainActor
-    final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSTextFieldDelegate {
+    final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSTextFieldDelegate, NSMenuDelegate {
         let model: BrowserModel
         weak var table: FileTableView?
         private var items: [FileItem] = []
@@ -105,6 +107,22 @@ struct DetailsView: NSViewRepresentable {
         init(_ model: BrowserModel) { self.model = model; ctx = ContextMenu(model) }
 
         private var appliedStyle = -1
+
+        // Right-click the column header to choose which columns show.
+        func headerMenu() -> NSMenu { let m = NSMenu(); m.delegate = self; return m }
+
+        func menuNeedsUpdate(_ menu: NSMenu) {
+            menu.removeAllItems()
+            guard let table else { return }
+            for col in table.tableColumns where col.identifier.rawValue != Column.name.rawValue {
+                let i = menu.addItem(withTitle: col.title, action: #selector(toggleColumn(_:)), keyEquivalent: "")
+                i.target = self
+                i.representedObject = col
+                i.state = col.isHidden ? .off : .on
+            }
+        }
+
+        @objc private func toggleColumn(_ i: NSMenuItem) { (i.representedObject as? NSTableColumn)?.isHidden.toggle() }
 
         func applyStyle(_ table: FileTableView) {
             let st = Settings.shared
@@ -158,13 +176,17 @@ struct DetailsView: NSViewRepresentable {
         func tableView(_ tableView: NSTableView, viewFor column: NSTableColumn?, row: Int) -> NSView? {
             guard let id = column?.identifier, let kind = Column(rawValue: id.rawValue), row < items.count else { return nil }
             let item = items[row]
-            let cell = (tableView.makeView(withIdentifier: id, owner: nil) as? NSTableCellView) ?? makeCell(id, withIcon: kind == .name)
+            let cell = (tableView.makeView(withIdentifier: id, owner: nil) as? NSTableCellView) ?? (kind == .name ? makeNameCell(id) : makeCell(id, withIcon: false))
             switch kind {
             case .name:
                 cell.imageView?.image = Icons.icon(for: item)
                 cell.textField?.stringValue = item.name
                 cell.textField?.delegate = self
                 cell.textField?.alphaValue = item.isHidden ? 0.55 : 1
+                (cell as? NameCell)?.dots.attributedStringValue = TagDots.string(item.tags)
+            case .created:
+                cell.textField?.stringValue = item.created?.formatted(date: .abbreviated, time: .shortened) ?? ""
+                cell.textField?.textColor = .secondaryLabelColor
             case .modified:
                 cell.textField?.stringValue = item.modified?.formatted(date: .abbreviated, time: .shortened) ?? ""
                 cell.textField?.textColor = .secondaryLabelColor
@@ -176,6 +198,30 @@ struct DetailsView: NSViewRepresentable {
                 cell.textField?.stringValue = item.kind
                 cell.textField?.textColor = .secondaryLabelColor
             }
+            return cell
+        }
+
+        private func makeNameCell(_ id: NSUserInterfaceItemIdentifier) -> NSTableCellView {
+            let cell = NameCell()
+            cell.identifier = id
+            let text = NSTextField(labelWithString: "")
+            text.lineBreakMode = .byTruncatingMiddle
+            let icon = NSImageView()
+            for v in [text, icon, cell.dots] { v.translatesAutoresizingMaskIntoConstraints = false; cell.addSubview(v) }
+            cell.textField = text
+            cell.imageView = icon
+            cell.dots.setContentHuggingPriority(.required, for: .horizontal)
+            cell.dots.setContentCompressionResistancePriority(.required, for: .horizontal)
+            NSLayoutConstraint.activate([
+                icon.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 4),
+                icon.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+                icon.widthAnchor.constraint(equalToConstant: 20), icon.heightAnchor.constraint(equalToConstant: 20),
+                text.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 7),
+                text.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+                text.trailingAnchor.constraint(lessThanOrEqualTo: cell.dots.leadingAnchor, constant: -4),
+                cell.dots.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -6),
+                cell.dots.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+            ])
             return cell
         }
 
@@ -270,5 +316,22 @@ struct DetailsView: NSViewRepresentable {
             guard let item else { return }
             if field.stringValue != item.name { model.rename(item, to: field.stringValue) } else { field.stringValue = item.name }
         }
+    }
+}
+
+/// Name column cell with a spot on the right for coloured tag dots.
+final class NameCell: NSTableCellView {
+    let dots = NSTextField(labelWithString: "")
+}
+
+enum TagDots {
+    /// "●●" in each tag's colour (grey for tags without a standard colour).
+    static func string(_ tags: [String]) -> NSAttributedString {
+        let out = NSMutableAttributedString()
+        for t in tags {
+            let color = Tags.hex(for: t).map { NSColor(red: CGFloat(($0 >> 16) & 255) / 255, green: CGFloat(($0 >> 8) & 255) / 255, blue: CGFloat($0 & 255) / 255, alpha: 1) } ?? .tertiaryLabelColor
+            out.append(NSAttributedString(string: "\u{25CF}", attributes: [.foregroundColor: color, .font: NSFont.systemFont(ofSize: 11)]))
+        }
+        return out
     }
 }

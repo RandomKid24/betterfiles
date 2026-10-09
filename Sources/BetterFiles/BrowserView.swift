@@ -51,6 +51,7 @@ struct TabContent: View {
         .sheet(isPresented: Binding(get: { active.showInfo }, set: { active.showInfo = $0 })) {
             InfoView(urls: active.infoURLs) { active.showInfo = false }
         }
+        .sheet(isPresented: Binding(get: { tab.showCompare }, set: { tab.showCompare = $0 })) { CompareView(tab: tab) }
         .sheet(isPresented: Binding(get: { active.showBatchRename }, set: { active.showBatchRename = $0 })) {
             BatchRenameView(items: active.batchItems, onApply: { active.applyBatchRename(base: $0, start: $1) }) { active.showBatchRename = false }
         }

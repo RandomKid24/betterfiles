@@ -63,4 +63,34 @@ final class NewFeatureTests: TempDirTestCase {
         let resolved = try URL(resolvingAliasFileAt: out.destination!)
         XCTAssertEqual(resolved.resolvingSymlinksInPath().path, f.resolvingSymlinksInPath().path)
     }
+
+    func testCompareAndCopyMissing() throws {
+        let l = try mkdir("L"), r = try mkdir("R")
+        try mkdir("sub", in: l)
+        try touch("same.txt", "x", in: l); try touch("same.txt", "x", in: r)
+        try touch("only-left.txt", "a", in: l)
+        try touch("deep.txt", "d", in: l.appendingPathComponent("sub"))
+        try touch("only-right.txt", "b", in: r)
+        try touch("diff.txt", "short", in: l); try touch("diff.txt", "much longer", in: r)
+        let res = FolderCompare.compare(l, r)
+        XCTAssertEqual(res.onlyLeft, ["only-left.txt", "sub/deep.txt"])
+        XCTAssertEqual(res.onlyRight, ["only-right.txt"])
+        XCTAssertEqual(res.different, ["diff.txt"])
+        let out = FolderCompare.copyMissing(res.onlyLeft, from: l, to: r)
+        XCTAssertTrue(out.allSatisfy(\.succeeded))
+        XCTAssertEqual(try String(contentsOf: r.appendingPathComponent("sub/deep.txt"), encoding: .utf8), "d")
+        XCTAssertEqual(FolderCompare.compare(l, r).onlyLeft, [])
+        // never overwrites
+        XCTAssertFalse(FolderCompare.copyMissing(["diff.txt"], from: l, to: r)[0].succeeded)
+    }
+
+    func testTagToggle() throws {
+        let f = try touch("t.txt")
+        let item = { FileItem(url: f, tags: (try? f.resourceValues(forKeys: [.tagNamesKey]).tagNames) ?? []) }
+        XCTAssertTrue(Tags.toggle("Red", on: [item()])[0].succeeded)
+        XCTAssertEqual(try f.resourceValues(forKeys: [.tagNamesKey]).tagNames, ["Red"])
+        Tags.toggle("Red", on: [item()])
+        XCTAssertEqual(try f.resourceValues(forKeys: [.tagNamesKey]).tagNames ?? [], [])
+        XCTAssertTrue(Filter.filter([FileItem(url: f, tags: ["Blue"])], text: "blue").count == 1)
+    }
 }

@@ -29,6 +29,7 @@ struct SettingsView: View {
                 Section("Files") {
                     Toggle("Show hidden files", isOn: $s.showHidden)
                     Toggle("Keep folders above files", isOn: $s.foldersFirst)
+                    Toggle("Remember view, sort and zoom for each folder", isOn: $s.perFolderView)
                     Toggle("Ask before moving to the Trash", isOn: $s.confirmTrash)
                 }
                 Section("Window") {

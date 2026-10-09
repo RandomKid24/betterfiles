@@ -17,6 +17,7 @@ final class Settings {
     var foldersFirst: Bool { didSet { save("foldersFirst", foldersFirst) } }
     var confirmTrash: Bool { didSet { save("confirmTrash", confirmTrash) } }
     var showStatusBar: Bool { didSet { save("showStatusBar", showStatusBar) } }
+    var perFolderView: Bool { didSet { save("perFolderView", perFolderView) } }
     var showLocations: Bool { didSet { save("showLocations", showLocations) } }
     var stripedRows: Bool { didSet { save("stripedRows", stripedRows) } }
     var density: Density { didSet { save("density", density.rawValue) } }
@@ -32,6 +33,7 @@ final class Settings {
         confirmTrash = b("confirmTrash", false)
         showStatusBar = b("showStatusBar", true)
         showLocations = b("showLocations", true)
+        perFolderView = b("perFolderView", true)
         stripedRows = b("stripedRows", false)
         density = Density(rawValue: UserDefaults.standard.string(forKey: "density") ?? "") ?? .comfortable
         themeID = UserDefaults.standard.string(forKey: "theme") ?? "system"

@@ -1,4 +1,5 @@
 import AppKit
+import FilesCore
 
 /// Right-click menu shared by the details and icon views. Rebuilt on each open so it reflects the selection.
 @MainActor
@@ -42,6 +43,21 @@ final class ContextMenu: NSObject, NSMenuDelegate {
         if !picked.isEmpty {
             menu.addItem(.separator())
             if picked.contains(where: { $0.url.pathExtension.lowercased() == "zip" }) { add("Extract", #selector(extract)) }
+            let tagsItem = NSMenuItem(title: "Tags", action: nil, keyEquivalent: "")
+            let tagsMenu = NSMenu()
+            for (name, hex) in Tags.standard {
+                let i = tagsMenu.addItem(withTitle: name, action: #selector(toggleTag(_:)), keyEquivalent: "")
+                i.target = self
+                i.state = picked.allSatisfy({ $0.tags.contains(name) }) ? .on : .off
+                let dot = NSImage(size: NSSize(width: 12, height: 12), flipped: false) { r in
+                    NSColor(red: CGFloat((hex >> 16) & 255) / 255, green: CGFloat((hex >> 8) & 255) / 255, blue: CGFloat(hex & 255) / 255, alpha: 1).setFill()
+                    NSBezierPath(ovalIn: r.insetBy(dx: 1, dy: 1)).fill()
+                    return true
+                }
+                i.image = dot
+            }
+            tagsItem.submenu = tagsMenu
+            menu.addItem(tagsItem)
             add("Duplicate", #selector(duplicate))
             add("Make Alias", #selector(alias))
             add("Compress", #selector(compress))
@@ -65,6 +81,7 @@ final class ContextMenu: NSObject, NSMenuDelegate {
     @objc private func openWithApp(_ i: NSMenuItem) { if let app = i.representedObject as? URL { model.openWith(app) } }
     @objc private func newTab() { model.openFolderInNewTab() }
     @objc private func otherPane() { model.openFolderInOtherPane() }
+    @objc private func toggleTag(_ i: NSMenuItem) { model.toggleTag(i.title) }
     @objc private func duplicate() { model.duplicate() }
     @objc private func alias() { model.makeAlias() }
     @objc private func reveal() { model.revealInFinder() }

@@ -66,7 +66,9 @@ final class BrowserModel: Identifiable {
         let target = target.standardizedFileURL
         if target.path != url.path {
             if recordHistory { backStack.append(url); forwardStack.removeAll() }
+            saveFolderPrefs()
             url = target
+            loadFolderPrefs()
             Recents.shared.add(target)
             selection = []
             filter = ""
@@ -169,12 +171,14 @@ final class BrowserModel: Identifiable {
         self.ascending = ascending
         defaults.set(column.rawValue, forKey: "sortColumn")
         defaults.set(ascending, forKey: "ascending")
+        saveFolderPrefs()
         recompute()
     }
 
     func setViewMode(_ mode: ViewMode) {
         viewMode = mode
         defaults.set(mode.rawValue, forKey: "viewMode")
+        saveFolderPrefs()
     }
 
     func togglePreview() { Prefs.shared.showPreview.toggle() }
@@ -182,6 +186,7 @@ final class BrowserModel: Identifiable {
     func setZoom(_ value: Double) {
         zoom = min(256, max(32, value))
         defaults.set(zoom, forKey: "zoom")
+        saveFolderPrefs()
     }
 
     // MARK: actions
@@ -323,6 +328,30 @@ final class BrowserModel: Identifiable {
 
     func openFolderInOtherPane() {
         if let f = selectedItems.first(where: \.isFolder) { onOpenInOtherPane(f.url) }
+    }
+
+    func toggleTag(_ name: String) {
+        report(Tags.toggle(name, on: selectedItems), done: "Updated the \(name) tag", failed: "tag")
+        reload()
+    }
+
+    // MARK: per-folder view settings (each folder remembers how you left it)
+
+    private func saveFolderPrefs() {
+        guard Settings.shared.perFolderView else { return }
+        var all = defaults.dictionary(forKey: "folderPrefs") as? [String: [String: Any]] ?? [:]
+        all[url.path] = ["mode": viewMode.rawValue, "sort": sortColumn.rawValue, "asc": ascending, "zoom": zoom]
+        if all.count > 300 { all.keys.prefix(all.count - 300).forEach { all.removeValue(forKey: $0) } }
+        defaults.set(all, forKey: "folderPrefs")
+    }
+
+    private func loadFolderPrefs() {
+        guard Settings.shared.perFolderView,
+              let p = (defaults.dictionary(forKey: "folderPrefs") as? [String: [String: Any]])?[url.path] else { return }
+        viewMode = ViewMode(rawValue: p["mode"] as? String ?? "") ?? viewMode
+        sortColumn = Column(rawValue: p["sort"] as? String ?? "") ?? sortColumn
+        ascending = p["asc"] as? Bool ?? ascending
+        zoom = p["zoom"] as? Double ?? zoom
     }
 
     func undo() {

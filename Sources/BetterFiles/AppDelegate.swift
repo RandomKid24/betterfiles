@@ -77,6 +77,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Text fields keep their own Cmd+Z while editing.
         if NSApp.keyWindow?.firstResponder is NSText { NSApp.sendAction(Selector(("undo:")), to: nil, from: nil) } else { model.undo() }
     }
+    @objc private func comparePanes() { tabs.current.comparePanes() }
     @objc private func split() { tabs.current.toggleSplit() }
     @objc private func copyToOther() { tabs.current.sendToOther(move: false) }
     @objc private func moveToOther() { tabs.current.sendToOther(move: true) }
@@ -154,6 +155,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             item("Details", #selector(showDetails), "1", target: self),
             item("Icons", #selector(showIcons), "2", target: self),
             item("Show Hidden Files", #selector(toggleHidden), ".", mods: [.command, .shift], target: self),
+            item("Compare Panes\u{2026}", #selector(comparePanes), "k", mods: [.command, .option], target: self),
             item("Split View", #selector(split), "\\", target: self),
             item("Copy to Other Pane", #selector(copyToOther), String(UnicodeScalar(NSF5FunctionKey)!), mods: [], target: self),
             item("Move to Other Pane", #selector(moveToOther), String(UnicodeScalar(NSF6FunctionKey)!), mods: [], target: self),

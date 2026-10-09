@@ -3,7 +3,7 @@ import Foundation
 public enum FolderListing {
     private static let keys: [URLResourceKey] = [
         .isDirectoryKey, .isPackageKey, .isHiddenKey, .fileSizeKey,
-        .contentModificationDateKey, .localizedTypeDescriptionKey,
+        .contentModificationDateKey, .localizedTypeDescriptionKey, .creationDateKey, .tagNamesKey,
     ]
 
     /// Lists a folder including hidden files, with every attribute prefetched in one pass. Safe to call off the main thread.
@@ -20,7 +20,9 @@ public enum FolderListing {
                 isPackage: isPackage,
                 size: isDir ? nil : v?.fileSize.map(Int64.init),
                 modified: v?.contentModificationDate,
-                kind: v?.localizedTypeDescription ?? (isDir ? "Folder" : "Document"))
+                kind: v?.localizedTypeDescription ?? (isDir ? "Folder" : "Document"),
+                created: v?.creationDate,
+                tags: v?.tagNames ?? [])
         }
     }
 }

@@ -1,7 +1,7 @@
 import Foundation
 
 public enum Column: String, CaseIterable, Sendable {
-    case name, modified, size, kind
+    case name, modified, size, kind, created
 }
 
 public enum Sorter {
@@ -20,6 +20,7 @@ public enum Sorter {
         switch column {
         case .name: return compareNames(a.name, b.name)
         case .modified: return cmp(a.modified ?? .distantPast, b.modified ?? .distantPast)
+        case .created: return cmp(a.created ?? .distantPast, b.created ?? .distantPast)
         case .size: return cmp(a.size ?? -1, b.size ?? -1)
         case .kind: return compareNames(a.kind, b.kind)
         }

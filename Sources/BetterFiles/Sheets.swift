@@ -101,3 +101,55 @@ struct BatchRenameView: View {
         .frame(width: 380)
     }
 }
+
+struct CompareView: View {
+    let tab: Tab
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Compare folders").font(.title3.bold())
+            if let c = tab.compared {
+                Text("\(c.left.path)\n\(c.right.path)").font(.caption).foregroundStyle(.secondary).lineLimit(2).truncationMode(.middle)
+            }
+            if tab.comparing || tab.comparison == nil {
+                ProgressView("Comparing\u{2026}").frame(maxWidth: .infinity, minHeight: 160)
+            } else if let r = tab.comparison {
+                Text("\(r.sameCount) identical").foregroundStyle(.secondary)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 10) {
+                        group("Only in left", r.onlyLeft, "arrow.right.circle", tab.copyMissingButton(toRight: true))
+                        group("Only in right", r.onlyRight, "arrow.left.circle", tab.copyMissingButton(toRight: false))
+                        group("Different (not touched)", r.different, "exclamationmark.triangle", nil)
+                    }
+                }
+                .frame(height: 260)
+            }
+            HStack {
+                Text("Copying never overwrites or deletes anything.").font(.caption).foregroundStyle(.tertiary)
+                Spacer()
+                Button("Done") { tab.showCompare = false }.keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(20)
+        .frame(width: 520)
+    }
+
+    @ViewBuilder
+    private func group(_ title: String, _ paths: [String], _ symbol: String, _ action: (() -> Void)?) -> some View {
+        if !paths.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Label("\(title) (\(paths.count))", systemImage: symbol).font(.headline)
+                    Spacer()
+                    if let action { Button("Copy \(paths.count) across", action: action).controlSize(.small) }
+                }
+                ForEach(paths.prefix(40), id: \.self) { Text($0).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle) }
+                if paths.count > 40 { Text("\u{2026} and \(paths.count - 40) more").font(.caption).foregroundStyle(.tertiary) }
+            }
+        }
+    }
+}
+
+extension Tab {
+    func copyMissingButton(toRight: Bool) -> () -> Void { { self.copyMissing(toRight: toRight) } }
+}

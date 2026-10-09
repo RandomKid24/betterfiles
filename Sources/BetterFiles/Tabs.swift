@@ -1,5 +1,6 @@
 import SwiftUI
 import Observation
+import FilesCore
 
 /// One tab: a folder view, optionally split into two panes.
 @MainActor @Observable
@@ -7,6 +8,40 @@ final class Tab: Identifiable {
     let primary: BrowserModel
     private(set) var secondary: BrowserModel?
     private(set) var secondaryActive = false
+
+    var showCompare = false
+    private(set) var comparing = false
+    private(set) var comparison: FolderCompare.Result?
+    private(set) var compared: (left: URL, right: URL)?
+
+    /// Compares the two panes' folders (needs the split view).
+    func comparePanes() {
+        guard let s = secondary else { primary.status = "Split the view first (\u{2318}\\) to compare two folders."; return }
+        let l = primary.url, r = s.url
+        compared = (l, r)
+        comparison = nil
+        comparing = true
+        showCompare = true
+        Task.detached {
+            let res = FolderCompare.compare(l, r)
+            await MainActor.run { self.comparison = res; self.comparing = false }
+        }
+    }
+
+    /// Copies files that exist on only one side to the other. Nothing is overwritten or deleted.
+    func copyMissing(toRight: Bool) {
+        guard let c = compared, let res = comparison else { return }
+        let (from, to, paths) = toRight ? (c.left, c.right, res.onlyLeft) : (c.right, c.left, res.onlyRight)
+        comparing = true
+        Task.detached {
+            let out = FolderCompare.copyMissing(paths, from: from, to: to)
+            await MainActor.run {
+                self.primary.status = "Copied \(out.filter(\.succeeded).count) of \(paths.count) missing files"
+                self.primary.reload(); self.secondary?.reload()
+                self.comparePanes()
+            }
+        }
+    }
 
     @ObservationIgnored var onNewTab: (URL) -> Void = { _ in }
 

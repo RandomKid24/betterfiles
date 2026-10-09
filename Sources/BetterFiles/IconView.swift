@@ -58,6 +58,7 @@ final class IconCell: NSCollectionViewItem {
     private var requestedBucket = 0
     private let icon = NSImageView()
     private let label = NSTextField(labelWithString: "")
+    private let dots = NSTextField(labelWithString: "")
 
     override func loadView() {
         let v = NSView()
@@ -68,8 +69,10 @@ final class IconCell: NSCollectionViewItem {
         label.maximumNumberOfLines = 2
         label.lineBreakMode = .byTruncatingMiddle
         label.cell?.wraps = true
-        for sub in [icon, label] { sub.translatesAutoresizingMaskIntoConstraints = false; v.addSubview(sub) }
+        for sub in [icon, label, dots] { sub.translatesAutoresizingMaskIntoConstraints = false; v.addSubview(sub) }
         NSLayoutConstraint.activate([
+            dots.topAnchor.constraint(equalTo: v.topAnchor, constant: 4),
+            dots.trailingAnchor.constraint(equalTo: v.trailingAnchor, constant: -6),
             icon.topAnchor.constraint(equalTo: v.topAnchor, constant: 6),
             icon.leadingAnchor.constraint(equalTo: v.leadingAnchor, constant: 6),
             icon.trailingAnchor.constraint(equalTo: v.trailingAnchor, constant: -6),
@@ -98,6 +101,7 @@ final class IconCell: NSCollectionViewItem {
         representedURL = item.url
         label.stringValue = item.name
         label.alphaValue = item.isHidden ? 0.55 : 1
+        dots.attributedStringValue = TagDots.string(item.tags)
         if !keepImage { icon.image = Icons.icon(for: item) }
         guard !item.isFolder else { return }
         let bucket = Thumbnails.bucket(for: size)
