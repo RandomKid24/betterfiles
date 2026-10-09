@@ -173,4 +173,8 @@ Plain Swift Package Manager, no dependencies.
 - Hidden files are off by default. Turn them on with `⇧⌘.`.
 - macOS doesn't let third-party apps become the default handler for folders, so folders you open from other apps still go to Finder. Butterlight opens them in Butterfinder.
 
+## License
+
+[MIT](LICENSE)
+
 Made with care — and a lot of butter.
