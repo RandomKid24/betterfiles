@@ -48,6 +48,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if NSApp.keyWindow?.firstResponder is NSText { return } // Cmd+Delete belongs to the text field while editing
         model.trashSelection()
     }
+    // Changes the system-wide default for opening folders; the other item hands it back to Finder.
+    @objc private func makeDefault() { setFolderHandler("com.betterfiles.files") }
+    @objc private func restoreFinder() { setFolderHandler("com.apple.finder") }
+
+    private func setFolderHandler(_ bundleID: String) {
+        let status = LSSetDefaultRoleHandlerForContentType("public.folder" as CFString, .all, bundleID as CFString)
+        let alert = NSAlert()
+        alert.messageText = status == noErr ? "Done" : "Couldn\u{2019}t change the default (error \(status))"
+        alert.informativeText = status == noErr
+            ? "Folders opened from other apps now use \(bundleID == "com.apple.finder" ? "Finder" : "BetterFiles"). Finder\u{2019}s own windows are unchanged."
+            : "BetterFiles must be running from ~/Applications (run package.sh)."
+        alert.runModal()
+    }
+
     @objc private func newTab() { tabs.new() }
     @objc private func closeTab() { if !tabs.close() { window.performClose(nil) } }
     @objc private func nextTab() { tabs.step(1) }
@@ -83,6 +97,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             item("About BetterFiles", #selector(NSApplication.orderFrontStandardAboutPanel(_:))),
             .separator(),
             item("Hide BetterFiles", #selector(NSApplication.hide(_:)), "h"),
+            .separator(),
+            item("Make BetterFiles the Default for Folders", #selector(makeDefault), target: self),
+            item("Restore Finder as Default for Folders", #selector(restoreFinder), target: self),
+            .separator(),
             item("Quit BetterFiles", #selector(NSApplication.terminate(_:)), "q"),
         ])
         add("File", [
