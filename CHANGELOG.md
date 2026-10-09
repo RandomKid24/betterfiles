@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.1.0] - 2026-10-09
 
 ### Added
 - Butterlight: **search inside files**. Type `? invoice 2025` to find files by their text (uses Spotlight's content index).

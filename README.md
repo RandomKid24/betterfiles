@@ -97,7 +97,7 @@ Eight themes (System, Ocean, Midnight, Violet, Rose, Sunset, Forest, Graphite) i
 
 ### Download (easiest)
 
-1. Grab **`Butterlight-Butterfinder-1.0.2.dmg`** from the [latest release](https://github.com/RandomKid24/betterfiles/releases/latest).
+1. Grab **`Butterlight-Butterfinder-1.1.0.dmg`** from the [latest release](https://github.com/RandomKid24/betterfiles/releases/latest).
 2. Drag **Butterlight** and **Butterfinder** into **Applications** and open them.
 3. **The first launch will be blocked** — the apps aren't notarized by Apple yet. Either:
    - open **System Settings → Privacy &amp; Security**, scroll down and click **Open Anyway**, or
@@ -121,7 +121,7 @@ git clone https://github.com/RandomKid24/betterfiles.git
 cd betterfiles
 ./package.sh          # builds and installs both apps into ~/Applications
 ./run.sh              # or: run the unpackaged dev builds in the background
-./dist.sh 1.0.2       # builds a universal .dmg and .zip into dist/
+./dist.sh 1.1.0       # builds a universal .dmg and .zip into dist/
 swift test            # runs the unit tests
 ```
 
