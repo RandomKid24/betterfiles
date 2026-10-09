@@ -27,7 +27,7 @@ final class PanelController {
         panel.level = .floating
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.hasShadow = true // the window server draws and caches the shadow; far cheaper than a live SwiftUI shadow over glass
+        panel.hasShadow = false // the system adds a second outline around the whole transparent frame; the card draws its own soft shadow
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.contentView = NSHostingView(rootView: LauncherView(model: model))
         panel.onResign = { [weak self] in self?.hide() }

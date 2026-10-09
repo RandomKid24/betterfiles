@@ -9,7 +9,8 @@ public final class FileIndex: @unchecked Sendable {
     private var builtAt: Date?
 
     /// Folders that are huge and never what you are searching for.
-    static let skipped: Set<String> = ["Library", "node_modules", "Pods", "DerivedData", ".build", "build", "target", "venv", ".venv"]
+    static let skipped: Set<String> = ["Library", "node_modules", "Pods", "DerivedData", ".build", "build", "target", "venv", ".venv",
+                                          "dist", "vendor", "site-packages", "__pycache__", "bower_components", "Carthage", "Intermediates.noindex"]
 
     public init() {}
 

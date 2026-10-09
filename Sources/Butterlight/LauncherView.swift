@@ -140,13 +140,18 @@ struct LauncherView: View {
                 .animation(.spring(response: 0.28, dampingFraction: 0.82), value: model.selected)
                 Divider().padding(.horizontal, 16)
                 HStack(spacing: 12) {
-                    Text("\u{21A9} Open")
-                    if model.pathMode { Text("\u{21E5} Complete") }
-                    Text("\u{2318}\u{21A9} Files")
-                    Text("\u{2325}\u{21A9} Path")
-                    Text("\u{21E7}\u{21A9} Terminal")
-                    Text("\u{2318}\u{232B} Trash")
-                    Text("Right-click: more")
+                    if model.selectedIsFile {
+                        Text("\u{21A9} Open")
+                        if model.pathMode { Text("\u{21E5} Complete") }
+                        Text("\u{2318}\u{21A9} Files")
+                        Text("\u{2325}\u{21A9} Path")
+                        Text("\u{21E7}\u{21A9} Terminal")
+                        Text("\u{2318}\u{232B} Trash")
+                        Text("Right-click: more")
+                    } else {
+                        Text("\u{21A9} Run")
+                        Text("\u{238B} Close")
+                    }
                     Spacer()
                 }
                 .font(.caption2)
@@ -159,7 +164,13 @@ struct LauncherView: View {
         .frame(width: 640)
         .background { if !LSettings.shared.glass { shape.fill(LSettings.shared.theme.surfaceColor ?? Color(nsColor: .windowBackgroundColor)) } }
         .glassEffect(LSettings.shared.glass ? .regular : .identity, in: shape)
-        .overlay { shape.strokeBorder(LSettings.shared.theme.accentColor.opacity(0.25), lineWidth: 1) }
+        .overlay { shape.strokeBorder(LSettings.shared.theme.accentColor.opacity(0.28), lineWidth: 1) }   // the one and only border
+        .background {
+            // Soft shadow from a plain blurred shape behind the card, cut away inside it so it never tints the glass.
+            // Cheap: it only redraws when the card's size changes, unlike a shadow over live content.
+            shape.fill(.black.opacity(0.4)).blur(radius: 22).offset(y: 14)
+                .mask { ZStack { Rectangle().padding(-90); shape.blendMode(.destinationOut) }.compositingGroup() }
+        }
         // Pop in from slightly smaller and higher, like Spotlight; spring so it settles instead of stopping dead.
         .scaleEffect(model.visible ? 1 : 0.94, anchor: .top)
         .offset(y: model.visible ? 0 : -10)

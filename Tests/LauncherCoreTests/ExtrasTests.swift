@@ -40,4 +40,17 @@ final class ExtrasTests: XCTestCase {
         XCTAssertEqual(hits.map(\.name), ["Résumé final.pdf"])
         XCTAssertTrue(index.search("r").isEmpty) // one character is too broad
     }
+
+    func testWebTargets() {
+        XCTAssertEqual(WebTarget.url(for: "192.168.1.1")?.absoluteString, "http://192.168.1.1")
+        XCTAssertEqual(WebTarget.url(for: "192.168.1.1:8080/admin")?.absoluteString, "http://192.168.1.1:8080/admin")
+        XCTAssertEqual(WebTarget.url(for: "localhost:3000")?.absoluteString, "http://localhost:3000")
+        XCTAssertEqual(WebTarget.url(for: "github.com/apple/swift")?.absoluteString, "https://github.com/apple/swift")
+        XCTAssertEqual(WebTarget.url(for: "https://example.com")?.absoluteString, "https://example.com")
+        XCTAssertEqual(WebTarget.url(for: "myserver:8000")?.absoluteString, "http://myserver:8000")
+        // not addresses
+        for t in ["main.swift", "notes.md", "safari", "999.1.1.1", "3.14", "report.pdf", "a b.com", "file:9999999"] {
+            XCTAssertNil(WebTarget.url(for: t), t)
+        }
+    }
 }

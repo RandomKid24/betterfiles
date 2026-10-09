@@ -79,6 +79,9 @@ final class Model {
         return PathQuery.isPath(t) ? String(t.split(separator: "/", omittingEmptySubsequences: false).last ?? "") : t
     }
 
+    /// True when the highlighted row is a file, app or folder (not an answer or other action).
+    var selectedIsFile: Bool { selectedRow?.path != nil }
+
     var pathMode: Bool { PathQuery.isPath(text) }
 
     // MARK: actions (each works on any row so the right-click menu can use them too)
@@ -216,6 +219,10 @@ final class Model {
 
     private func actionRows() -> [LRow] {
         let q = text.trimmingCharacters(in: .whitespaces)
+        if let url = WebTarget.url(for: q) {
+            return [LRow(id: "web-open", title: "Open \(url.absoluteString)", subtitle: "Return to open in your browser",
+                         symbol: "network", run: { NSWorkspace.shared.open(url) })]
+        }
         if LSettings.shared.calculator, let answer = Calc.answer(q) {
             let value = answer.split(separator: "=").last.map { $0.trimmingCharacters(in: .whitespaces) } ?? answer
             return [LRow(id: "calc", title: answer, subtitle: "Return to copy the answer", symbol: "equal.circle.fill",
