@@ -24,7 +24,10 @@ struct PreviewPane: View {
     let onClose: () -> Void
 
     var body: some View {
-        content.overlay(alignment: .topTrailing) {
+        content
+            .animation(.smooth(duration: 0.18), value: items.first?.url)
+            .animation(.smooth(duration: 0.18), value: items.count)
+            .overlay(alignment: .topTrailing) {
             Button(action: onClose) { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
                 .buttonStyle(.plain)
                 .help("Hide preview (\u{21E7}\u{2318}P)")
@@ -48,6 +51,8 @@ struct PreviewPane: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(12)
             }
+            .id(item.url)
+            .transition(.opacity)
         } else {
             Text(items.isEmpty ? "Select a file to preview it" : "\(items.count) items selected")
                 .foregroundStyle(.secondary)

@@ -68,7 +68,7 @@ struct LauncherView: View {
             .frame(height: 64)
 
             if !model.results.isEmpty {
-                Divider().padding(.horizontal, 16)
+                Divider().padding(.horizontal, 16).transition(.opacity)
                 VStack(spacing: 2) {
                     ForEach(Array(model.results.enumerated()), id: \.element.path) { i, c in
                         Row(candidate: c, selected: i == model.selected, index: i)
@@ -109,6 +109,8 @@ struct LauncherView: View {
         .blur(radius: model.visible ? 0 : 14) // comes into focus as it lands
         .opacity(model.visible ? 1 : 0)
         // Springy on the way in, quick ease on the way out.
+        // The results block grows/collapses smoothly; per-keystroke count changes deliberately don't animate.
+        .animation(.smooth(duration: 0.24), value: model.results.isEmpty)
         .animation(model.visible ? .spring(response: 0.38, dampingFraction: 0.72) : .easeIn(duration: 0.14), value: model.visible)
         .padding(40) // room for the shadow; the panel itself is transparent
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)

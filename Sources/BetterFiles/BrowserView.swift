@@ -6,10 +6,16 @@ struct BrowserView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if tabs.all.count > 1 { TabBar(tabs: tabs); Divider() }
+            if tabs.all.count > 1 {
+                VStack(spacing: 0) { TabBar(tabs: tabs); Divider() }
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
             // .id rebuilds the AppKit views per tab so each keeps its own folder, selection and scroll state.
             BrowserContent(model: tabs.current, onNewTab: { tabs.new() }).id(tabs.current.id)
+                .transition(.opacity)
         }
+        .animation(.smooth(duration: 0.22), value: tabs.all.count)
+        .animation(.smooth(duration: 0.18), value: tabs.current.id)
     }
 }
 
@@ -36,16 +42,21 @@ struct BrowserContent: View {
                     }
                     if let m = model.displayMessage {
                         Text(m).foregroundStyle(.secondary).multilineTextAlignment(.center).padding().allowsHitTesting(false)
+                            .transition(.opacity.combined(with: .scale(scale: 0.96)))
                     }
                 }
+                .animation(.smooth(duration: 0.2), value: model.viewMode)
+                .animation(.smooth(duration: 0.2), value: model.displayMessage)
                 Divider()
                 StatusBar(model: model)
             }
             if model.showPreview {
                 Divider()
                 PreviewPane(items: model.selectedItems, onClose: { model.togglePreview() }).frame(width: 300)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
             }
             }
+            .animation(.smooth(duration: 0.3), value: model.showPreview)
         }
         .frame(minWidth: 950, minHeight: 400)
     }
