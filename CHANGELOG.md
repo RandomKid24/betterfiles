@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.2.0] - 2026-10-12
 
 ### Fixed
 - Butterlight: ⌘A (select all), ⌘C, ⌘V, ⌘X, ⌘Z and ⇧⌘Z now work in the search box. The launcher has no menu bar menus, so macOS had nothing to turn these shortcuts into actions.
