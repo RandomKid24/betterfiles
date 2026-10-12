@@ -62,7 +62,7 @@ Press **⌘ Space** and start typing.
 - **Live preview pane** (Quick Look) for images, PDFs, video, text, code and more. Drag its edge to resize it, and press **Space** for full-size Quick Look.
 - **Tabs** (`⌘T`) and **dual-pane** (`⌘\`) with `F5` copy / `F6` move to the other pane, or just drag between them.
 - **Finder tags** with colored dots, and **tagged folders take their tag's color**. Right-click to tag, and filter with `#red`.
-- **Compare two folders** (`⌥⌘K`): see what's only on one side and copy the missing files across. Nothing is ever overwritten or deleted.
+- **Compare and sync two folders** (`⌥⌘K`): see what's only on one side or changed, then copy missing files, update older copies with newer ones, or **Sync both ways**. Nothing is ever deleted, replaced files go to the Trash after you confirm, and `⌘Z` undoes the whole sync.
 - **Undo (`⌘Z`)** for move, rename, trash, paste, new folder, zip and bulk rename.
 - **Never destructive:** delete goes to the Trash, and name clashes become `name 2.ext`.
 - **Live updates:** files saved by other apps appear without a refresh; drives appear when plugged in.
@@ -177,7 +177,6 @@ Plain Swift Package Manager, no dependencies.
 
 - [ ] Notarized releases (no Gatekeeper warning)
 - [ ] Network drives and cloud folders
-- [ ] Folder sync for files that differ (today it only copies missing files)
 - [ ] Plugins / custom launcher commands
 
 ## Notes

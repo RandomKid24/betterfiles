@@ -46,6 +46,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             tabs.current.secondary?.navigate(to: URL(fileURLWithPath: cli[i + 1]))
         }
         if cli.contains("--open-settings") { SettingsWindow.show() }
+        if cli.contains("--demo-compare") {   // opens the compare window, and with --demo-sync also runs "Sync both ways"
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in self?.tabs.current.comparePanes() }
+            if cli.contains("--demo-sync") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 4.5) { [weak self] in self?.tabs.current.sync(.both) }
+            }
+        }
         if cli.contains("--demo-new-folder") {   // same as File > New Folder, a moment after launch
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in self?.model.newFolder() }
         }

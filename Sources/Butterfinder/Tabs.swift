@@ -28,15 +28,41 @@ final class Tab: Identifiable {
         }
     }
 
-    /// Copies files that exist on only one side to the other. Nothing is overwritten or deleted.
-    func copyMissing(toRight: Bool) {
-        guard let c = compared, let res = comparison else { return }
-        let (from, to, paths) = toRight ? (c.left, c.right, res.onlyLeft) : (c.right, c.left, res.onlyRight)
+    enum SyncPlan: Equatable {
+        case copyMissing(toRight: Bool)    // files that exist on one side only
+        case updateOlder(toRight: Bool)    // the newer version replaces the older (which goes to the Trash)
+        case both                          // all of the above, both directions
+    }
+
+    /// How many files a plan would copy, and how many it would replace.
+    func counts(for plan: SyncPlan) -> (copy: Int, replace: Int) {
+        guard let r = comparison else { return (0, 0) }
+        switch plan {
+        case .copyMissing(let right): return (right ? r.onlyLeft.count : r.onlyRight.count, 0)
+        case .updateOlder(let right): return (0, right ? r.newerLeft.count : r.newerRight.count)
+        case .both: return (r.onlyLeft.count + r.onlyRight.count, r.newerLeft.count + r.newerRight.count)
+        }
+    }
+
+    /// Runs a sync. Nothing is deleted: replaced files go to the Trash, and Cmd+Z undoes the whole thing.
+    func sync(_ plan: SyncPlan) {
+        guard let c = compared, let r = comparison else { return }
+        var missingRight: [String] = [], missingLeft: [String] = [], updateRight: [String] = [], updateLeft: [String] = []
+        switch plan {
+        case .copyMissing(let right): if right { missingRight = r.onlyLeft } else { missingLeft = r.onlyRight }
+        case .updateOlder(let right): if right { updateRight = r.newerLeft } else { updateLeft = r.newerRight }
+        case .both: missingRight = r.onlyLeft; missingLeft = r.onlyRight; updateRight = r.newerLeft; updateLeft = r.newerRight
+        }
+        let (left, right) = (c.left, c.right)
         comparing = true
         Task.detached {
-            let out = FolderCompare.copyMissing(paths, from: from, to: to)
+            let copied = FolderCompare.copyMissing(missingRight, from: left, to: right) + FolderCompare.copyMissing(missingLeft, from: right, to: left)
+            let replaced = FolderCompare.replaceOlder(updateRight, from: left, to: right) + FolderCompare.replaceOlder(updateLeft, from: right, to: left)
             await MainActor.run {
-                self.primary.status = "Copied \(out.filter(\.succeeded).count) of \(paths.count) missing files"
+                let ok = copied.filter(\.succeeded).count, swapped = replaced.filter(\.succeeded).count
+                let failed = copied.count + replaced.count - ok - swapped
+                self.primary.recordSync(created: copied, replaced: replaced)
+                self.primary.status = "Synced: \(ok) copied, \(swapped) updated" + (failed > 0 ? ", \(failed) failed" : "") + ". \u{2318}Z undoes it."
                 self.primary.reload(); self.secondary?.reload()
                 self.comparePanes()
             }

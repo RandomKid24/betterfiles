@@ -375,6 +375,11 @@ final class BrowserModel: Identifiable {
         zoom = p["zoom"] as? Double ?? zoom
     }
 
+    /// Lets a folder sync be undone with Cmd+Z as one step.
+    func recordSync(created: [OpOutcome], replaced: [FolderCompare.Replacement]) {
+        Self.undoStack.recordSync("folder sync", created: created, replaced: replaced)
+    }
+
     func undo() {
         status = Self.undoStack.undo() ?? "Nothing to undo."
         reload()

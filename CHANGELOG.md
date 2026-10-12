@@ -61,6 +61,10 @@
 ## [Unreleased]
 
 ### Added
+- Butterfinder: **folder sync.** Compare Panes (⌥⌘K) now also fixes differences, not just lists them. Per direction you can copy files that exist on one side only, or update the older copy of a changed file with the newer one. **Sync both ways** does it all at once. Files whose modified times match but whose sizes differ are flagged and never touched.
+- Replaced files go to the Trash first, nothing is ever deleted, anything that replaces a file asks for confirmation with exact counts, and **⌘Z undoes a whole sync** (the old files come back from the Trash).
+
+### Added
 - **BetterFiles Stage A**: Explorer-style file manager. Folder tree sidebar, editable address bar with breadcrumbs, details view with sortable columns, zoomable icon view with thumbnails, in-folder filter, Cut+Paste-to-move, Trash-only delete, no-overwrite naming, hidden files and extensions always shown.
 - `FilesCore` library (listing, sorting, filtering, address parsing, file operations, clipboard rules) with 40 unit tests.
 - BetterLauncher: glass panel with a pop-in animation matching macOS 26's large rounded corners.

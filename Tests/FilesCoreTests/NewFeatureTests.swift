@@ -76,6 +76,7 @@ final class NewFeatureTests: TempDirTestCase {
         XCTAssertEqual(res.onlyLeft, ["only-left.txt", "sub/deep.txt"])
         XCTAssertEqual(res.onlyRight, ["only-right.txt"])
         XCTAssertEqual(res.different, ["diff.txt"])
+        XCTAssertEqual(res.conflicts, ["diff.txt"])   // same time, different size: never decided for you
         let out = FolderCompare.copyMissing(res.onlyLeft, from: l, to: r)
         XCTAssertTrue(out.allSatisfy(\.succeeded))
         XCTAssertEqual(try String(contentsOf: r.appendingPathComponent("sub/deep.txt"), encoding: .utf8), "d")
@@ -125,5 +126,30 @@ final class NewFeatureTests: TempDirTestCase {
         XCTAssertEqual(a.destination?.lastPathComponent, "untitled.txt")
         XCTAssertEqual(b.destination?.lastPathComponent, "untitled 2.txt")
         XCTAssertEqual(try Data(contentsOf: a.destination!).count, 0)
+    }
+
+    func setTime(_ url: URL, _ seconds: TimeInterval) throws {
+        try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSince1970: seconds)], ofItemAtPath: url.path)
+    }
+
+    func testNewerSideIsDetectedAndReplacementKeepsTheOldFile() throws {
+        let l = try mkdir("L"), r = try mkdir("R")
+        let a = try touch("a.txt", "new", in: l), b = try touch("a.txt", "old", in: r)
+        try setTime(a, 2_000_000); try setTime(b, 1_000_000)
+        let res = FolderCompare.compare(l, r)
+        XCTAssertEqual(res.newerLeft, ["a.txt"]); XCTAssertEqual(res.newerRight, [])
+
+        let done = FolderCompare.replaceOlder(res.newerLeft, from: l, to: r)
+        XCTAssertTrue(done[0].succeeded)
+        XCTAssertEqual(try String(contentsOf: b, encoding: .utf8), "new")
+        let trashed = try XCTUnwrap(done[0].trashed)
+        XCTAssertEqual(try String(contentsOf: trashed, encoding: .utf8), "old")   // the old one is recoverable
+        XCTAssertEqual(FolderCompare.compare(l, r).sameCount, 1)
+
+        let undo = UndoStack()
+        undo.recordReplaced("sync", done)
+        XCTAssertEqual(undo.undo(), "Undid sync")
+        XCTAssertEqual(try String(contentsOf: b, encoding: .utf8), "old")         // restored
+        try? FileManager.default.removeItem(at: trashed)
     }
 }

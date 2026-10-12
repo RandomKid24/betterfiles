@@ -104,52 +104,81 @@ struct BatchRenameView: View {
 
 struct CompareView: View {
     let tab: Tab
+    @State private var pending: Tab.SyncPlan?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Compare folders").font(.title3.bold())
+            Text("Compare and sync folders").font(.title3.bold())
             if let c = tab.compared {
                 Text("\(c.left.path)\n\(c.right.path)").font(.caption).foregroundStyle(.secondary).lineLimit(2).truncationMode(.middle)
             }
             if tab.comparing || tab.comparison == nil {
-                ProgressView("Comparing\u{2026}").frame(maxWidth: .infinity, minHeight: 160)
+                ProgressView("Working\u{2026}").frame(maxWidth: .infinity, minHeight: 200)
             } else if let r = tab.comparison {
-                Text("\(r.sameCount) identical").foregroundStyle(.secondary)
+                let both = tab.counts(for: .both)
+                HStack {
+                    Text("\(r.sameCount) identical").foregroundStyle(.secondary)
+                    Spacer()
+                    Button { ask(.both) } label: { Label("Sync both ways", systemImage: "arrow.left.arrow.right") }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(both.copy + both.replace == 0)
+                        .help("Copies files that exist on one side only, and lets the newer version of changed files win. Nothing is deleted.")
+                }
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 10) {
-                        group("Only in left", r.onlyLeft, "arrow.right.circle", tab.copyMissingButton(toRight: true))
-                        group("Only in right", r.onlyRight, "arrow.left.circle", tab.copyMissingButton(toRight: false))
-                        group("Different (not touched)", r.different, "exclamationmark.triangle", nil)
+                    VStack(alignment: .leading, spacing: 12) {
+                        group("Only in left", r.onlyLeft, "plus.circle", "Copy to right", .copyMissing(toRight: true))
+                        group("Only in right", r.onlyRight, "plus.circle", "Copy to left", .copyMissing(toRight: false))
+                        group("Newer in left", r.newerLeft, "arrow.right.circle", "Update right", .updateOlder(toRight: true))
+                        group("Newer in right", r.newerRight, "arrow.left.circle", "Update left", .updateOlder(toRight: false))
+                        group("Same time, different size: left alone", r.conflicts, "exclamationmark.triangle", nil, nil)
+                        if r.onlyLeft.isEmpty && r.onlyRight.isEmpty && r.different.isEmpty {
+                            Label("The folders match.", systemImage: "checkmark.circle").foregroundStyle(.secondary)
+                        }
                     }
                 }
-                .frame(height: 260)
+                .frame(height: 280)
             }
             HStack {
-                Text("Copying never overwrites or deletes anything.").font(.caption).foregroundStyle(.tertiary)
+                Text("Nothing is deleted. Replaced files go to the Trash, and \u{2318}Z undoes a sync.").font(.caption).foregroundStyle(.tertiary)
                 Spacer()
                 Button("Done") { tab.showCompare = false }.keyboardShortcut(.defaultAction)
             }
         }
         .padding(20)
-        .frame(width: 520)
+        .frame(width: 560)
+        .confirmationDialog(confirmTitle, isPresented: Binding(get: { pending != nil }, set: { if !$0 { pending = nil } }), titleVisibility: .visible) {
+            Button("Sync") { if let p = pending { tab.sync(p) }; pending = nil }
+            Button("Cancel", role: .cancel) { pending = nil }
+        } message: { Text(confirmMessage) }
+    }
+
+    /// Copying missing files can't hurt anything, so it runs at once; anything that replaces a file asks first.
+    private func ask(_ plan: Tab.SyncPlan) {
+        if tab.counts(for: plan).replace == 0, case .copyMissing = plan { tab.sync(plan) } else { pending = plan }
+    }
+
+    private var confirmTitle: String { "Sync these folders?" }
+    private var confirmMessage: String {
+        guard let p = pending else { return "" }
+        let n = tab.counts(for: p)
+        var parts: [String] = []
+        if n.copy > 0 { parts.append("copy \(n.copy) file\(n.copy == 1 ? "" : "s") that exist on one side only") }
+        if n.replace > 0 { parts.append("replace \(n.replace) older file\(n.replace == 1 ? "" : "s") with the newer version") }
+        return "This will " + parts.joined(separator: " and ") + ". Replaced files go to the Trash and \u{2318}Z undoes the sync."
     }
 
     @ViewBuilder
-    private func group(_ title: String, _ paths: [String], _ symbol: String, _ action: (() -> Void)?) -> some View {
+    private func group(_ title: String, _ paths: [String], _ symbol: String, _ buttonTitle: String?, _ plan: Tab.SyncPlan?) -> some View {
         if !paths.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Label("\(title) (\(paths.count))", systemImage: symbol).font(.headline)
                     Spacer()
-                    if let action { Button("Copy \(paths.count) across", action: action).controlSize(.small) }
+                    if let buttonTitle, let plan { Button(buttonTitle) { ask(plan) }.controlSize(.small) }
                 }
-                ForEach(paths.prefix(40), id: \.self) { Text($0).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle) }
-                if paths.count > 40 { Text("\u{2026} and \(paths.count - 40) more").font(.caption).foregroundStyle(.tertiary) }
+                ForEach(paths.prefix(30), id: \.self) { Text($0).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle) }
+                if paths.count > 30 { Text("\u{2026} and \(paths.count - 30) more").font(.caption).foregroundStyle(.tertiary) }
             }
         }
     }
-}
-
-extension Tab {
-    func copyMissingButton(toRight: Bool) -> () -> Void { { self.copyMissing(toRight: toRight) } }
 }
