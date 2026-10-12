@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- Butterlight: ⌘A (select all), ⌘C, ⌘V, ⌘X, ⌘Z and ⇧⌘Z now work in the search box. The launcher has no menu bar menus, so macOS had nothing to turn these shortcuts into actions.
+
 ### Added
 - Butterfinder: **resizable preview pane**. Drag the divider; the width is remembered.
 - Butterfinder: **tooltips** on files (path, kind, size, dates, tags), icons, sidebar places, breadcrumbs and toolbar controls.

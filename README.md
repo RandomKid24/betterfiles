@@ -144,6 +144,7 @@ swift test            # runs the unit tests
 | `⌘⌫` | Move to Trash |
 | `⌘1`–`⌘9` | Open that result |
 | `Esc` | Dismiss |
+| `⌘A` `⌘C` `⌘V` `⌘X` `⌘Z` | Select all, copy, paste, cut and undo in the search box |
 
 **Butterfinder**
 

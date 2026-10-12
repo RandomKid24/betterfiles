@@ -8,6 +8,25 @@ final class Panel: NSPanel {
         super.resignKey()
         onResign?()
     }
+
+    /// Butterlight has no menu bar menus, so macOS has nothing to turn Cmd+A, C, V, X and Z into actions.
+    /// Send them to the search box ourselves.
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if mods == .command || mods == [.command, .shift], let key = event.charactersIgnoringModifiers?.lowercased() {
+            let action: Selector? = switch (key, mods.contains(.shift)) {
+            case ("a", false): #selector(NSText.selectAll(_:))
+            case ("c", false): #selector(NSText.copy(_:))
+            case ("v", false): #selector(NSText.paste(_:))
+            case ("x", false): #selector(NSText.cut(_:))
+            case ("z", false): Selector(("undo:"))
+            case ("z", true): Selector(("redo:"))
+            default: nil
+            }
+            if let action, NSApp.sendAction(action, to: nil, from: self) { return true }
+        }
+        return super.performKeyEquivalent(with: event)
+    }
 }
 
 @MainActor
