@@ -58,7 +58,7 @@
 - Butterfinder treated command-line flags as folder paths.
 - The sidebar could be squeezed off-screen; the path bar now fits the available width.
 
-## [Unreleased]
+## [1.3.0] - 2026-10-12
 
 ### Added
 - Butterlight: **signature animation.** When the panel opens, a comet of light in your theme color runs once around its edge; results cascade in when they first appear (typing more doesn't replay it); the search icon lights up once you type; opening a result makes its icon swell and fade as the panel sinks away. Turn it off in Butterlight's settings. It is also skipped automatically when macOS "Reduce Motion" is on.
