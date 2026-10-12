@@ -60,6 +60,12 @@
 
 ## [Unreleased]
 
+### Fixed
+- Butterfinder: **file names were missing under tagged folders and picture thumbnails** in icon view. The image's own pixel size squeezed the name to nothing at smaller icon sizes; names now always keep their space.
+
+### Improved
+- Butterfinder: smoother, livelier interface. Icons and list rows get a hover highlight; selection fades in and out; real thumbnails fade in over the file-type icon; toolbar buttons shrink slightly when pressed and bounce when a toggle switches.
+
 ### Added
 - Butterfinder: **folder sync.** Compare Panes (⌥⌘K) now also fixes differences, not just lists them. Per direction you can copy files that exist on one side only, or update the older copy of a changed file with the newer one. **Sync both ways** does it all at once. Files whose modified times match but whose sizes differ are flagged and never touched.
 - Replaced files go to the Trash first, nothing is ever deleted, anything that replaces a file asks for confirmation with exact counts, and **⌘Z undoes a whole sync** (the old files come back from the Trash).

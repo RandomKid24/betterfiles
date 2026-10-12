@@ -88,6 +88,25 @@ final class Settings {
 
 /// Selection drawn as a rounded pill in the theme's accent colour, instead of the stock system highlight.
 final class ThemedRowView: NSTableRowView {
+    private var hovering = false { didSet { needsDisplay = true } }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self))
+    }
+    override func mouseEntered(with event: NSEvent) { hovering = true }
+    override func mouseExited(with event: NSEvent) { hovering = false }
+    override func prepareForReuse() { super.prepareForReuse(); hovering = false }
+
+    // A faint rounded highlight under the mouse, so rows feel alive before you click.
+    override func drawBackground(in dirtyRect: NSRect) {
+        super.drawBackground(in: dirtyRect)
+        guard hovering, !isSelected else { return }
+        NSColor.labelColor.withAlphaComponent(0.07).setFill()
+        NSBezierPath(roundedRect: bounds.insetBy(dx: 6, dy: 1), xRadius: 7, yRadius: 7).fill()
+    }
+
     override var isEmphasized: Bool { get { true } set {} }
     override var interiorBackgroundStyle: NSView.BackgroundStyle { isSelected ? .emphasized : .normal }
 

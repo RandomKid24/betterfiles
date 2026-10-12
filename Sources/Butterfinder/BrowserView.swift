@@ -125,6 +125,15 @@ struct PreviewDivider: View {
     }
 }
 
+/// Shrinks a button slightly while it is pressed.
+struct PressScale: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.88 : 1)
+            .animation(.spring(response: 0.2, dampingFraction: 0.6), value: configuration.isPressed)
+    }
+}
+
 /// Small icon button with a hover highlight.
 struct ToolButton: View {
     let symbol: String
@@ -137,13 +146,14 @@ struct ToolButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
+                .symbolEffect(.bounce, value: active)   // a small bounce when a toggle switches on or off
                 .font(.system(size: 13, weight: .medium))
                 .frame(width: 28, height: 26)
                 .foregroundStyle(active ? Color.white : (enabled ? Color.primary : Color.secondary.opacity(0.4)))
                 .background(active ? Settings.shared.theme.accentColor : (hover && enabled ? Color.primary.opacity(0.1) : .clear),
                             in: RoundedRectangle(cornerRadius: 7, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressScale())
         .help(help)
         .onHover { hover = $0 }
         .animation(.easeOut(duration: 0.12), value: hover)

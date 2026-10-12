@@ -60,11 +60,34 @@ final class IconCell: NSCollectionViewItem {
     private let label = NSTextField(labelWithString: "")
     private let dots = NSTextField(labelWithString: "")
 
+    /// Cell background that reports the mouse entering and leaving, for the hover highlight.
+    private final class HoverView: NSView {
+        var onHover: ((Bool) -> Void)?
+        override func updateTrackingAreas() {
+            super.updateTrackingAreas()
+            trackingAreas.forEach(removeTrackingArea)
+            addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self))
+        }
+        override func mouseEntered(with event: NSEvent) { onHover?(true) }
+        override func mouseExited(with event: NSEvent) { onHover?(false) }
+    }
+
+    private var hovering = false { didSet { restyle() } }
+
     override func loadView() {
-        let v = NSView()
+        let v = HoverView()
+        v.onHover = { [weak self] in self?.hovering = $0 }
         v.wantsLayer = true
         v.layer?.cornerRadius = 12
         icon.imageScaling = .scaleProportionallyUpOrDown
+        icon.wantsLayer = true
+        // The icon's own pixel size must never push the name out of the cell: a big thumbnail or a tinted folder image
+        // used to squeeze the label to nothing.
+        for axis in [NSLayoutConstraint.Orientation.horizontal, .vertical] {
+            icon.setContentCompressionResistancePriority(NSLayoutConstraint.Priority(1), for: axis)
+            icon.setContentHuggingPriority(NSLayoutConstraint.Priority(1), for: axis)
+        }
+        label.setContentCompressionResistancePriority(.required, for: .vertical)
         label.alignment = .center
         label.maximumNumberOfLines = 2
         label.lineBreakMode = .byTruncatingTail   // wraps at word boundaries, then cuts the end of line two
@@ -87,13 +110,28 @@ final class IconCell: NSCollectionViewItem {
         textField = label
     }
 
-    override var isSelected: Bool {
-        didSet {
-            let accent = MainActor.assumeIsolated { Settings.shared.theme.accentNS }
-            view.layer?.backgroundColor = isSelected ? accent.withAlphaComponent(0.28).cgColor : nil
-            view.layer?.borderWidth = isSelected ? 1.5 : 0
-            view.layer?.borderColor = accent.withAlphaComponent(0.7).cgColor
+    override var isSelected: Bool { didSet { restyle() } }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        hovering = false
+    }
+
+    /// Selected: accent fill and border. Hovered: a faint fill. Changes fade over a moment instead of snapping.
+    private func restyle() {
+        guard let layer = view.layer else { return }
+        let accent = MainActor.assumeIsolated { Settings.shared.theme.accentNS }
+        let fill: CGColor? = isSelected ? accent.withAlphaComponent(0.28).cgColor
+            : hovering ? NSColor.labelColor.withAlphaComponent(0.08).cgColor : nil
+        let border: CGFloat = isSelected ? 1.5 : 0
+        for (key, to) in [("backgroundColor", fill as Any), ("borderWidth", border as Any)] {
+            let a = CABasicAnimation(keyPath: key)
+            a.fromValue = layer.presentation()?.value(forKeyPath: key) ?? layer.value(forKeyPath: key)
+            a.duration = 0.16
+            layer.add(a, forKey: "restyle-" + key)
+            layer.setValue(to is NSNull ? nil : to, forKeyPath: key)
         }
+        layer.borderColor = accent.withAlphaComponent(0.7).cgColor
     }
 
     @MainActor
@@ -109,7 +147,12 @@ final class IconCell: NSCollectionViewItem {
         requestedBucket = bucket
         Thumbnails.load(url: item.url, size: size) { [weak self] image in
             // The cell may have been reused for another file, or asked for a newer size, while the thumbnail loaded.
-            if self?.representedURL == item.url, self?.requestedBucket == bucket { self?.icon.image = image }
+            guard let self, self.representedURL == item.url, self.requestedBucket == bucket else { return }
+            let fade = CATransition()   // the real thumbnail fades in over the file-type icon
+            fade.type = .fade
+            fade.duration = 0.2
+            self.icon.layer?.add(fade, forKey: "thumb")
+            self.icon.image = image
         }
     }
 }
