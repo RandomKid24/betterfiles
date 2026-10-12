@@ -26,6 +26,7 @@ final class Settings {
     var colorFolders: Bool { didSet { save("colorFolders", colorFolders) } }
     var singleClickOpen: Bool { didSet { save("singleClickOpen", singleClickOpen) } }
     var startAtLast: Bool { didSet { save("startAtLast", startAtLast) } }
+    var restoreTabs: Bool { didSet { save("restoreTabs", restoreTabs) } }
     var themeID: String { didSet { save("theme", themeID) } }
     var appearance: String { didSet { save("appearance", appearance); applyAppearance() } }   // system, light, dark
 
@@ -46,6 +47,7 @@ final class Settings {
         colorFolders = b("colorFolders", true)
         singleClickOpen = b("singleClickOpen", false)
         startAtLast = b("startAtLast", false)
+        restoreTabs = b("restoreTabs", true)
         themeID = UserDefaults.standard.string(forKey: "theme") ?? "system"
         appearance = UserDefaults.standard.string(forKey: "appearance") ?? "system"
     }
@@ -76,7 +78,7 @@ final class Settings {
     func resetToDefaults() {
         showHidden = false; foldersFirst = true; confirmTrash = false; showStatusBar = true; showLocations = true
         perFolderView = true; stripedRows = false; density = .comfortable; themeID = "system"; appearance = "system"
-        dateStyle = "abbreviated"; showTagDots = true; colorFolders = true; singleClickOpen = false; startAtLast = false
+        dateStyle = "abbreviated"; showTagDots = true; colorFolders = true; singleClickOpen = false; startAtLast = false; restoreTabs = true
         Prefs.shared.showPreview = true
         Prefs.shared.previewWidth = 280; Prefs.shared.savePreviewWidth()
     }

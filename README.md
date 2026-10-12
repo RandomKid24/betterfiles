@@ -60,7 +60,8 @@ Press **⌘ Space** and start typing.
 
 - **List and icon views** with real thumbnails and a smooth zoom slider.
 - **Live preview pane** (Quick Look) for images, PDFs, video, text, code and more. Drag its edge to resize it, and press **Space** for full-size Quick Look.
-- **Tabs** (`⌘T`) and **dual-pane** (`⌘\`) with `F5` copy / `F6` move to the other pane, or just drag between them.
+- **Search subfolders and save searches as smart folders.** Filter words understand `kind:image`, `size>10mb`, `newer:7d`, `ext:pdf` and `#red`, and the filter menu has an "Include subfolders" switch and "Save Search as Smart Folder".
+- **Tabs** (`⌘T`, drag to reorder, reopened on launch) and **dual-pane** (`⌘\`) with `F5` copy / `F6` move to the other pane, or just drag between them.
 - **Finder tags** with colored dots, and **tagged folders take their tag's color**. Right-click to tag, and filter with `#red`.
 - **Compare and sync two folders** (`⌥⌘K`): see what's only on one side or changed, then copy missing files, update older copies with newer ones, or **Sync both ways**. Nothing is ever deleted, replaced files go to the Trash after you confirm, and `⌘Z` undoes the whole sync.
 - **Undo (`⌘Z`)** for move, rename, trash, paste, new folder, zip and bulk rename.

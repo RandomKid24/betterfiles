@@ -152,4 +152,42 @@ final class NewFeatureTests: TempDirTestCase {
         XCTAssertEqual(try String(contentsOf: b, encoding: .utf8), "old")         // restored
         try? FileManager.default.removeItem(at: trashed)
     }
+
+    // MARK: search operators and subfolder search
+
+    func item(_ name: String, size: Int64? = nil, modified: Date? = nil, folder: Bool = false) -> FileItem {
+        FileItem(url: dir.appendingPathComponent(name), isFolder: folder, size: size, modified: modified)
+    }
+
+    func testOperators() {
+        let now = Date(timeIntervalSince1970: 10_000_000)
+        let day: TimeInterval = 86_400
+        let items = [item("a.png", size: 2_000_000, modified: now - 2 * day), item("b.pdf", size: 500, modified: now - 40 * day),
+                     item("c.swift", size: 9_000, modified: now - 100 * day), item("Docs", modified: now, folder: true)]
+        func names(_ q: String) -> [String] { Filter.filter(items, text: q, now: now).map(\.name) }
+        XCTAssertEqual(names("kind:image"), ["a.png"])
+        XCTAssertEqual(names("kind:im"), ["a.png"])            // unfinished words work
+        XCTAssertEqual(names("kind:folder"), ["Docs"])
+        XCTAssertEqual(names("ext:.pdf"), ["b.pdf"])
+        XCTAssertEqual(names("size>1mb"), ["a.png"])
+        XCTAssertEqual(names("size<1kb"), ["b.pdf"])
+        XCTAssertEqual(names("newer:7d"), ["a.png", "Docs"])
+        XCTAssertEqual(names("older:30d"), ["b.pdf", "c.swift"])
+        XCTAssertEqual(names("older:30d kind:code"), ["c.swift"])   // operators combine
+        XCTAssertEqual(names("kind:image a"), ["a.png"])            // and combine with name words
+        XCTAssertEqual(names("kind:nonsense"), [])
+    }
+
+    func testSubfolderSearchFindsNestedFilesAndSkipsNodeModules() throws {
+        let deep = try mkdir("a/b/c")
+        try touch("report-2026.pdf", in: deep)
+        try touch("notes.txt", in: try mkdir("a"))
+        let junk = try mkdir("node_modules/pkg")
+        try touch("report-old.pdf", in: junk)
+        try touch(".hidden-report.pdf", in: deep)
+        let found = SubfolderSearch.find(in: dir, text: "report", includeHidden: false)
+        XCTAssertEqual(found.map(\.name), ["report-2026.pdf"])
+        XCTAssertEqual(SubfolderSearch.find(in: dir, text: "kind:pdf", includeHidden: true).count, 2)   // operators alone, hidden included
+        XCTAssertTrue(SubfolderSearch.find(in: dir, text: "report", includeHidden: false, shouldStop: { true }).isEmpty)
+    }
 }

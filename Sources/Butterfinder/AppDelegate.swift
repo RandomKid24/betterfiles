@@ -52,6 +52,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 4.5) { [weak self] in self?.tabs.current.sync(.both) }
             }
         }
+        if let i = cli.firstIndex(of: "--demo-search"), cli.indices.contains(i + 1) {   // searches subfolders for the given text
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                self?.model.searchSubfolders = true
+                self?.model.filter = cli[i + 1]
+            }
+        }
+        if cli.contains("--demo-smart") {   // saves the current folder + "kind:pdf" as a smart folder
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
+                guard let self else { return }
+                SmartFolders.shared.add(SmartFolder(name: "Recent PDFs", query: "kind:pdf newer:30d", root: self.model.url.path, subfolders: true))
+            }
+        }
         if cli.contains("--demo-new-folder") {   // same as File > New Folder, a moment after launch
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in self?.model.newFolder() }
         }

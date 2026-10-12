@@ -8,6 +8,7 @@ final class Node: NSObject {
     let symbol: String
     let isHeader: Bool
     var isFavorite = false
+    private(set) var smart: SmartFolder?     // set for a saved search
     private(set) var children: [Node]?   // nil until first expanded (headers get theirs up front)
 
     init(url: URL, name: String, symbol: String = "folder") {
@@ -15,6 +16,15 @@ final class Node: NSObject {
         self.name = name
         self.symbol = symbol
         isHeader = false
+    }
+
+    init(smart: SmartFolder) {
+        url = URL(fileURLWithPath: smart.root)
+        name = smart.name
+        symbol = "magnifyingglass.circle"
+        isHeader = false
+        self.smart = smart
+        children = []   // not expandable
     }
 
     init(header: String, children: [Node]) {
@@ -39,6 +49,7 @@ struct SidebarView: NSViewRepresentable {
     let model: BrowserModel
     let url: URL
     let favorites: [URL]   // read by the parent's body so SwiftUI calls updateNSView when they change
+    let smartFolders: [SmartFolder]
     let style: Int         // Settings.revision, same idea
 
     func makeCoordinator() -> Coordinator { Coordinator(model) }
@@ -68,7 +79,7 @@ struct SidebarView: NSViewRepresentable {
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         let c = context.coordinator
         c.model = model   // the active pane can change
-        if c.favoritesInTree != favorites || c.appliedStyle != style { c.rebuild() }
+        if c.favoritesInTree != favorites || c.smartInTree != smartFolders || c.appliedStyle != style { c.rebuild() }
         c.reveal(url)
     }
 
@@ -78,11 +89,12 @@ struct SidebarView: NSViewRepresentable {
         weak var outline: NSOutlineView?
         private var roots: [Node] = []   // section headers
         private(set) var favoritesInTree: [URL] = []
+        private(set) var smartInTree: [SmartFolder] = []
         private(set) var appliedStyle = -1
         private var syncing = false
         private var lastRevealed: String?
 
-        private var places: [Node] { roots.flatMap { $0.children ?? [] } }
+        private var places: [Node] { roots.flatMap { $0.children ?? [] }.filter { $0.smart == nil } }
 
         init(_ model: BrowserModel) {
             self.model = model
@@ -110,6 +122,8 @@ struct SidebarView: NSViewRepresentable {
                 places.append(n)
             }
             var out = [Node(header: "Favorites", children: places)]
+            smartInTree = SmartFolders.shared.all
+            if !smartInTree.isEmpty { out.append(Node(header: "Smart Folders", children: smartInTree.map(Node.init(smart:)))) }
             if Settings.shared.showLocations {
                 let volumes = fm.mountedVolumeURLs(includingResourceValuesForKeys: [.volumeNameKey], options: [.skipHiddenVolumes]) ?? []
                 let nodes = volumes.map { v in
@@ -135,14 +149,15 @@ struct SidebarView: NSViewRepresentable {
 
         func menuNeedsUpdate(_ menu: NSMenu) {
             menu.removeAllItems()
-            guard let ov = outline, ov.clickedRow >= 0, let node = ov.item(atRow: ov.clickedRow) as? Node, node.isFavorite else { return }
-            let item = menu.addItem(withTitle: "Remove from Sidebar", action: #selector(removeFavorite(_:)), keyEquivalent: "")
+            guard let ov = outline, ov.clickedRow >= 0, let node = ov.item(atRow: ov.clickedRow) as? Node, node.isFavorite || node.smart != nil else { return }
+            let item = menu.addItem(withTitle: node.smart != nil ? "Remove Smart Folder" : "Remove from Sidebar", action: #selector(removeFavorite(_:)), keyEquivalent: "")
             item.target = self
-            item.representedObject = node.url
+            item.representedObject = node.smart?.id ?? node.url
         }
 
         @objc private func removeFavorite(_ sender: NSMenuItem) {
             if let url = sender.representedObject as? URL { Favorites.shared.remove(url) }
+            if let id = sender.representedObject as? UUID { SmartFolders.shared.remove(id) }
         }
 
         // MARK: data source
@@ -221,18 +236,19 @@ struct SidebarView: NSViewRepresentable {
 
         func outlineViewSelectionDidChange(_ notification: Notification) {
             guard !syncing, let ov = outline, ov.selectedRow >= 0, let node = ov.item(atRow: ov.selectedRow) as? Node, !node.isHeader else { return }
+            if let smart = node.smart { model.openSmartFolder(smart); return }
             lastRevealed = node.url.standardizedFileURL.path // we are already there; no need to re-reveal
             model.navigate(to: node.url)
         }
 
         func outlineView(_ ov: NSOutlineView, validateDrop info: NSDraggingInfo, proposedItem item: Any?, proposedChildIndex index: Int) -> NSDragOperation {
-            guard let node = item as? Node, !node.isHeader else { return [] }
+            guard let node = item as? Node, !node.isHeader, node.smart == nil else { return [] }
             ov.setDropItem(node, dropChildIndex: NSOutlineViewDropOnItemIndex)
             return dropOperation
         }
 
         func outlineView(_ ov: NSOutlineView, acceptDrop info: NSDraggingInfo, item: Any?, childIndex index: Int) -> Bool {
-            guard let node = item as? Node, !node.isHeader else { return false }
+            guard let node = item as? Node, !node.isHeader, node.smart == nil else { return false }
             model.drop(droppedURLs(info), onto: node.url, copy: NSEvent.modifierFlags.contains(.option))
             return true
         }

@@ -32,10 +32,14 @@ make_app() { # name  bundle-id  extra-plist
 $3
 </dict></plist>
 PLIST
-  codesign --force --sign - "$APP"
+  if [ -n "$SIGN_ID" ]; then   # a Developer ID: hardened runtime + timestamp, as notarization requires
+    codesign --force --options runtime --timestamp --entitlements Tools/entitlements.plist --sign "$SIGN_ID" "$APP"
+  else
+    codesign --force --sign - "$APP"   # ad-hoc: fine for your own Mac, blocked by Gatekeeper elsewhere
+  fi
 }
 
-make_app Butterlight com.butterlight.app '<key>LSUIElement</key><true/>' magnifyingglass 7B61FF 3B82F6
+make_app Butterlight com.butterlight.app '<key>LSUIElement</key><true/><key>NSAppleEventsUsageDescription</key><string>Butterlight toggles dark mode when you type dark mode.</string>' magnifyingglass 7B61FF 3B82F6
 make_app Butterfinder com.butterfinder.app '<key>CFBundleDocumentTypes</key><array><dict>
 <key>CFBundleTypeName</key><string>Folder</string><key>CFBundleTypeRole</key><string>Viewer</string>
 <key>LSItemContentTypes</key><array><string>public.folder</string></array></dict></array>' folder.fill 38BDF8 2563EB

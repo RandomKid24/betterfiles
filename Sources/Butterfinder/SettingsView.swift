@@ -37,6 +37,7 @@ struct SettingsView: View {
                 Section("Opening folders") {
                     Toggle("Open items with a single click", isOn: $s.singleClickOpen)
                     Toggle("Start in the folder I was last in", isOn: $s.startAtLast)
+                    Toggle("Reopen my tabs when Butterfinder starts", isOn: $s.restoreTabs)
                 }
                 Section("Startup") {
                     Toggle("Open at login (runs quietly in the background)", isOn: Binding(get: { login }, set: { on in

@@ -28,7 +28,7 @@ struct TabContent: View {
     var body: some View {
         let active = tab.active
         NavigationSplitView {
-            SidebarView(model: active, url: active.url, favorites: Favorites.shared.urls, style: Settings.shared.revision)
+            SidebarView(model: active, url: active.url, favorites: Favorites.shared.urls, smartFolders: SmartFolders.shared.all, style: Settings.shared.revision)
                 .navigationSplitViewColumnWidth(min: 180, ideal: 230, max: 340)
         } detail: {
             HStack(spacing: 0) {
@@ -125,6 +125,48 @@ struct PreviewDivider: View {
     }
 }
 
+/// The little menu in the filter box: search scope, saving a search, and shortcuts for filter words.
+struct FilterMenu: View {
+    @Bindable var model: BrowserModel
+
+    var body: some View {
+        Menu {
+            Toggle("Include subfolders", isOn: $model.searchSubfolders)
+            Divider()
+            Button("Save Search as Smart Folder\u{2026}") { model.saveSearchAsSmartFolder() }
+                .disabled(model.filter.trimmingCharacters(in: .whitespaces).isEmpty)
+            Divider()
+            Menu("Add a Filter") {
+                Section("Kind") {
+                    ForEach(["image", "pdf", "document", "spreadsheet", "video", "audio", "archive", "code", "folder", "app"], id: \.self) { k in
+                        Button(k.capitalized) { model.addFilterToken("kind:" + k) }
+                    }
+                }
+                Section("Modified") {
+                    Button("In the last 7 days") { model.addFilterToken("newer:7d") }
+                    Button("In the last 30 days") { model.addFilterToken("newer:30d") }
+                    Button("More than a year ago") { model.addFilterToken("older:1y") }
+                }
+                Section("Size") {
+                    Button("Bigger than 10 MB") { model.addFilterToken("size>10mb") }
+                    Button("Bigger than 100 MB") { model.addFilterToken("size>100mb") }
+                    Button("Smaller than 100 KB") { model.addFilterToken("size<100kb") }
+                }
+                Section("Tags") {
+                    ForEach(Tags.standard.map(\.name), id: \.self) { t in Button(t) { model.addFilterToken("#" + t.lowercased()) } }
+                }
+            }
+        } label: {
+            Image(systemName: model.searchSubfolders ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                .foregroundStyle(model.searchSubfolders ? Settings.shared.theme.accentColor : .secondary)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help(model.searchSubfolders ? "Searching this folder and its subfolders" : "Search options")
+    }
+}
+
 /// Shrinks a button slightly while it is pressed.
 struct PressScale: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
@@ -180,15 +222,16 @@ struct TopBar: View {
                 TextField("Filter  (words, #tag)", text: $model.filter)
                     .textFieldStyle(.plain)
                     .focused($filterFocused)
-                    .onChange(of: model.filter) { model.recompute() }
+                    .onChange(of: model.filter) { model.filterChanged() }
                     .onExitCommand { model.filter = "" }
                 if !model.filter.isEmpty {
                     Button { model.filter = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }.buttonStyle(.plain)
                 }
+                FilterMenu(model: model)
             }
             .padding(.horizontal, 8).padding(.vertical, 5)
-            .frame(minWidth: 100, idealWidth: 170, maxWidth: 170)
-            .help("Filter this folder: type words, or #red / tag:red for tags")
+            .frame(minWidth: 110, idealWidth: 200, maxWidth: 200)
+            .help("Filter: type words, or use kind:image, size>10mb, newer:7d, #red. The menu on the right searches subfolders.")
             .background(Color.primary.opacity(filterFocused ? 0.1 : 0.06), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Settings.shared.theme.accentColor.opacity(filterFocused ? 0.8 : 0), lineWidth: 1.5))
             .animation(.easeOut(duration: 0.15), value: filterFocused)
@@ -217,7 +260,7 @@ struct StatusBar: View {
     let model: BrowserModel
 
     private var summary: String {
-        var s = model.filter.isEmpty ? "\(model.visible.count) items" : "\(model.visible.count) of \(model.totalCount) items match"
+        var s = model.searchStatus ?? (model.filter.isEmpty ? "\(model.visible.count) items" : "\(model.visible.count) of \(model.totalCount) items match")
         let picked = model.selectedItems
         if !picked.isEmpty {
             s += " \u{00B7} \(picked.count) selected"

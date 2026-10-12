@@ -60,6 +60,13 @@
 
 ## [Unreleased]
 
+### Added
+- Butterfinder: **search subfolders.** The menu in the filter box has "Include subfolders": the search then covers the folder and everything inside it, with results shown as a flat list ("3 matches in subfolders"). Right-click a result for "Show in Enclosing Folder".
+- Butterfinder: **smart folders.** Save any search (words, operators, scope) from the filter menu; it appears under "Smart Folders" in the sidebar and runs again whenever you open it. Right-click to remove.
+- Butterfinder: **search operators** that combine with each other and with words: `kind:image` (also pdf, document, spreadsheet, video, audio, archive, code, folder, app), `ext:pdf`, `size>10mb`, `size<500kb`, `newer:7d`, `older:1y`, and `#tag`. The filter menu has an "Add a Filter" list so you don't have to remember them.
+- Butterfinder: **drag tabs to reorder them**, and **tabs reopen** where you left them when the app starts (a setting turns this off).
+- Notarization support: `notarize.sh` signs with a Developer ID, notarizes with Apple and staples the result. Needs a paid Apple Developer account; see `docs/NOTARIZING.md`.
+
 ### Fixed
 - Butterfinder: **file names were missing under tagged folders and picture thumbnails** in icon view. The image's own pixel size squeezed the name to nothing at smaller icon sizes; names now always keep their space.
 

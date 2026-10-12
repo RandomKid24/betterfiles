@@ -4,6 +4,9 @@ import Observation
 
 enum ViewMode: String { case details, icons }
 
+/// Lets a newer search stop an older one that is still walking the folders.
+final class SearchFlag: @unchecked Sendable { var stopped = false }
+
 @MainActor @Observable
 final class BrowserModel: Identifiable {
     private(set) var url: URL
@@ -21,6 +24,9 @@ final class BrowserModel: Identifiable {
     private(set) var forwardStack: [URL] = []
     var selection: Set<URL> = []
     var filter = ""
+    /// Search this folder and everything inside it, not just the folder itself.
+    var searchSubfolders = false { didSet { if oldValue != searchSubfolders { filterChanged() } } }
+    private(set) var searching = false
     var addressFocusToken = 0
     var filterFocusToken = 0
     var showInfo = false
@@ -31,6 +37,9 @@ final class BrowserModel: Identifiable {
     @ObservationIgnored var onOpenInNewTab: (URL) -> Void = { _ in }       // set by the tab
     @ObservationIgnored var onOpenInOtherPane: (URL) -> Void = { _ in }   // set by the tab: marks this pane as the active one
     @ObservationIgnored private var watcher: FolderWatcher?
+    @ObservationIgnored private var searchResults: [FileItem]?      // results of the subfolder search, nil until it finishes
+    @ObservationIgnored private var searchTask: Task<Void, Never>?
+    @ObservationIgnored private var searchFlag = SearchFlag()
     @ObservationIgnored private var zoomSave: DispatchWorkItem?
     @ObservationIgnored private static let undoStack = UndoStack()
     @ObservationIgnored private static var busy = false
@@ -63,7 +72,8 @@ final class BrowserModel: Identifiable {
     var canGoForward: Bool { !forwardStack.isEmpty }
     var selectedItems: [FileItem] { visible.filter { selection.contains($0.url) } }
     var displayMessage: String? {
-        message ?? (visible.isEmpty && !filter.isEmpty ? "Nothing matches \u{201C}\(filter)\u{201D}." : nil)
+        message ?? (visible.isEmpty && !filter.isEmpty
+                    ? (searching ? "Searching subfolders\u{2026}" : "Nothing matches \u{201C}\(filter)\u{201D}.") : nil)
     }
 
     // MARK: navigation
@@ -75,12 +85,14 @@ final class BrowserModel: Identifiable {
             saveFolderPrefs()
             url = target
             loadFolderPrefs()
+            NotificationCenter.default.post(name: .butterfinderNavigated, object: nil)
             Recents.shared.add(target)
             Settings.shared.rememberFolder(target)
             selection = []
             pendingSelect = []
             folderSizes = [:]
             filter = ""
+            cancelSearch()
             status = nil
             items = []; visible = []; message = nil
             version += 1
@@ -165,9 +177,83 @@ final class BrowserModel: Identifiable {
         }
     }
 
+    // MARK: searching subfolders and smart folders
+
+    private func cancelSearch() {
+        searchTask?.cancel()
+        searchFlag.stopped = true
+        searchResults = nil
+        searching = false
+    }
+
+    /// The filter text or scope changed: filter the folder at once, and if subfolders are included, search them too.
+    func filterChanged() {
+        cancelSearch()
+        guard searchSubfolders, !filter.trimmingCharacters(in: .whitespaces).isEmpty else { recompute(); return }
+        searching = true
+        recompute()   // meanwhile the current folder is filtered
+        let flag = SearchFlag()
+        searchFlag = flag
+        let root = url, text = filter, hidden = Settings.shared.showHidden
+        searchTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled else { return }
+            let found = await Task.detached { SubfolderSearch.find(in: root, text: text, includeHidden: hidden, shouldStop: { flag.stopped }) }.value
+            guard let self, !Task.isCancelled, !flag.stopped else { return }
+            self.searchResults = found
+            self.searching = false
+            self.recompute()
+        }
+    }
+
+    /// "3 matches in subfolders", or nil when not searching them.
+    var searchStatus: String? {
+        guard searchSubfolders, !filter.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
+        return searching ? "Searching subfolders\u{2026}" : "\(visible.count) match\(visible.count == 1 ? "" : "es") in subfolders"
+    }
+
+    var showingSearchResults: Bool { searchResults != nil && searchSubfolders && !filter.isEmpty }
+
+    func addFilterToken(_ token: String) {
+        filter = (filter.trimmingCharacters(in: .whitespaces) + " " + token).trimmingCharacters(in: .whitespaces) + " "
+    }
+
+    /// From a search result: open the folder the file lives in, with the file selected.
+    func showInEnclosingFolder() {
+        guard let item = selectedItems.first else { return }
+        navigate(to: item.url.deletingLastPathComponent())
+        pendingSelect = [item.name]
+    }
+
+    func openSmartFolder(_ folder: SmartFolder) {
+        navigate(to: URL(fileURLWithPath: folder.root))
+        searchSubfolders = folder.subfolders
+        filter = folder.query
+        filterChanged()
+    }
+
+    func saveSearchAsSmartFolder() {
+        let query = filter.trimmingCharacters(in: .whitespaces)
+        guard !query.isEmpty else { return }
+        let alert = NSAlert()
+        alert.messageText = "Save this search"
+        alert.informativeText = "It appears under Smart Folders in the sidebar and runs again whenever you open it.\nSearching \(url.path)" + (searchSubfolders ? " and its subfolders." : ".")
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
+        field.stringValue = query
+        alert.accessoryView = field
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let name = field.stringValue.trimmingCharacters(in: .whitespaces)
+        SmartFolders.shared.add(SmartFolder(name: name.isEmpty ? query : name, query: query, root: url.path, subfolders: searchSubfolders))
+        status = "Saved \u{201C}\(name.isEmpty ? query : name)\u{201D} as a smart folder"
+    }
+
     func recompute() {
         let st = Settings.shared
-        let shown = st.showHidden ? items : items.filter { !$0.isHidden }
+        // While a subfolder search has results, they replace the folder's own listing.
+        let source = searchSubfolders && !filter.trimmingCharacters(in: .whitespaces).isEmpty ? (searchResults ?? items) : items
+        let shown = st.showHidden ? source : source.filter { !$0.isHidden }
         totalCount = shown.count
         visible = Sorter.sort(Filter.filter(shown, text: filter), by: sortColumn, ascending: ascending, foldersFirst: st.foldersFirst)
         if !pendingSelect.isEmpty {

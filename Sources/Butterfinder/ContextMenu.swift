@@ -15,7 +15,7 @@ final class ContextMenu: NSObject, NSMenuDelegate {
         "Paste": "doc.on.clipboard", "New Folder": "folder.badge.plus", "Extract": "arrow.up.bin", "Compress": "archivebox",
         "Duplicate": "plus.square.on.square", "Make Alias": "link", "Tags": "tag", "Add to Sidebar": "star",
         "Copy Path": "list.clipboard", "Reveal in Finder": "magnifyingglass", "Open in Terminal": "terminal",
-        "Get Info": "info.circle", "Move to Trash": "trash", "Share": "square.and.arrow.up", "New File": "doc.badge.plus", "Move to\u{2026}": "arrowshape.turn.up.right", "Copy to\u{2026}": "plus.rectangle.on.folder", "Calculate Size": "chart.pie",
+        "Get Info": "info.circle", "Move to Trash": "trash", "Share": "square.and.arrow.up", "Show in Enclosing Folder": "arrow.turn.up.left", "New File": "doc.badge.plus", "Move to\u{2026}": "arrowshape.turn.up.right", "Copy to\u{2026}": "plus.rectangle.on.folder", "Calculate Size": "chart.pie",
     ]
 
     static func icon(for title: String) -> NSImage? {
@@ -35,6 +35,7 @@ final class ContextMenu: NSObject, NSMenuDelegate {
         let picked = model.selectedItems
         if !picked.isEmpty {
             add("Open", #selector(open))
+            if model.showingSearchResults { add("Show in Enclosing Folder", #selector(showEnclosing)) }
             if picked.allSatisfy({ !$0.isFolder }) {
                 let openWith = NSMenuItem(title: "Open With", action: nil, keyEquivalent: "")
                 openWith.image = Self.icon(for: "Open With")
@@ -134,6 +135,7 @@ final class ContextMenu: NSObject, NSMenuDelegate {
     @objc private func cut() { model.cutSelection() }
     @objc private func copyItems() { model.copySelection() }
     @objc private func paste() { model.paste() }
+    @objc private func showEnclosing() { model.showInEnclosingFolder() }
     @objc private func newFile() { model.newFile() }
     @objc private func moveTo() { model.chooseDestination(copy: false) }
     @objc private func copyTo() { model.chooseDestination(copy: true) }

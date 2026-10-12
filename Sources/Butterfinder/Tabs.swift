@@ -5,6 +5,7 @@ import FilesCore
 /// One tab: a folder view, optionally split into two panes.
 @MainActor @Observable
 final class Tab: Identifiable {
+    let uid = UUID()
     let primary: BrowserModel
     private(set) var secondary: BrowserModel?
     private(set) var secondaryActive = false
@@ -115,17 +116,40 @@ final class Tab: Identifiable {
 
 @MainActor @Observable
 final class Tabs {
-    private(set) var all: [Tab] = [Tab(start: Settings.shared.startFolder)]
+    private(set) var all: [Tab] = []
     private(set) var index = 0
     var current: Tab { all[index] }
+    @ObservationIgnored private var observer: NSObjectProtocol?
 
-    init() { all[0].onNewTab = { [weak self] in self?.new(at: $0) } }
+    init() {
+        // Reopen the tabs from last time (folders that no longer exist are skipped).
+        let d = UserDefaults.standard
+        if Settings.shared.restoreTabs, let paths = d.stringArray(forKey: "tabSession") {
+            all = paths.filter { FileManager.default.fileExists(atPath: $0) }.map { Tab(start: URL(fileURLWithPath: $0)) }
+            index = min(max(0, d.integer(forKey: "tabSessionIndex")), max(0, all.count - 1))
+        }
+        if all.isEmpty { all = [Tab(start: Settings.shared.startFolder)] }
+        all.forEach { wire($0) }
+        observer = NotificationCenter.default.addObserver(forName: .butterfinderNavigated, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.saveSession() }
+        }
+    }
+
+    private func wire(_ tab: Tab) { tab.onNewTab = { [weak self] in self?.new(at: $0) } }
+
+    private func saveSession() {
+        guard Settings.shared.restoreTabs else { return }
+        let d = UserDefaults.standard
+        d.set(all.map { $0.primary.url.path }, forKey: "tabSession")
+        d.set(index, forKey: "tabSessionIndex")
+    }
 
     func new(at url: URL? = nil) {
         let tab = Tab(start: url ?? current.active.url)
-        tab.onNewTab = { [weak self] in self?.new(at: $0) }
+        wire(tab)
         all.append(tab)
         index = all.count - 1
+        saveSession()
     }
 
     /// Returns false when this was the last tab (the caller closes the window instead).
@@ -135,11 +159,23 @@ final class Tabs {
         let i = i ?? index
         all.remove(at: i)
         index = min(index > i ? index - 1 : index, all.count - 1)
+        saveSession()
         return true
     }
 
-    func select(_ i: Int) { if all.indices.contains(i) { index = i } }
-    func step(_ d: Int) { index = (index + d + all.count) % all.count }
+    func select(_ i: Int) { if all.indices.contains(i) { index = i; saveSession() } }
+    func step(_ d: Int) { index = (index + d + all.count) % all.count; saveSession() }
+
+    /// Drag a tab onto another to put it before that one; `before: nil` moves it to the end.
+    func move(_ uid: UUID, before target: UUID?) {
+        guard let from = all.firstIndex(where: { $0.uid == uid }), uid != target else { return }
+        let selected = all[index]
+        let tab = all.remove(at: from)
+        let to = target.flatMap { t in all.firstIndex { $0.uid == t } } ?? all.count
+        all.insert(tab, at: to)
+        index = all.firstIndex { $0 === selected } ?? 0
+        saveSession()
+    }
 }
 
 struct TabBar: View {
@@ -162,11 +198,22 @@ struct TabBar: View {
                 .background(active ? Settings.shared.theme.accentColor.opacity(0.22) : Color.clear, in: Capsule())
                 .contentShape(Capsule())
                 .onTapGesture { withAnimation(.snappy(duration: 0.2)) { tabs.select(i) } }
+                .draggable(tab.uid.uuidString)
+                .dropDestination(for: String.self) { ids, _ in
+                    guard let id = ids.first.flatMap(UUID.init(uuidString:)) else { return false }
+                    withAnimation(.snappy(duration: 0.2)) { tabs.move(id, before: tab.uid) }
+                    return true
+                }
             }
             Button { withAnimation(.snappy(duration: 0.2)) { tabs.new() } } label: { Image(systemName: "plus") }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 6)
             Spacer()
+                .dropDestination(for: String.self) { ids, _ in   // dropping in the empty space moves a tab to the end
+                    guard let id = ids.first.flatMap(UUID.init(uuidString:)) else { return false }
+                    withAnimation(.snappy(duration: 0.2)) { tabs.move(id, before: nil) }
+                    return true
+                }
         }
         .padding(.horizontal, 8).padding(.vertical, 4)
     }

@@ -73,3 +73,34 @@ final class Recents {
         UserDefaults.standard.set(urls.map(\.path), forKey: "recents")
     }
 }
+
+/// A saved search: where to look, what to look for, and whether to include subfolders.
+struct SmartFolder: Codable, Identifiable, Hashable {
+    var id = UUID()
+    var name: String
+    var query: String
+    var root: String
+    var subfolders: Bool
+}
+
+@MainActor @Observable
+final class SmartFolders {
+    static let shared = SmartFolders()
+    private(set) var all: [SmartFolder]
+
+    private init() {
+        all = (UserDefaults.standard.data(forKey: "smartFolders").flatMap { try? JSONDecoder().decode([SmartFolder].self, from: $0) }) ?? []
+    }
+
+    func add(_ folder: SmartFolder) { all.append(folder); save() }
+    func remove(_ id: UUID) { all.removeAll { $0.id == id }; save() }
+
+    private func save() {
+        if let data = try? JSONEncoder().encode(all) { UserDefaults.standard.set(data, forKey: "smartFolders") }
+    }
+}
+
+extension Notification.Name {
+    /// Posted whenever a pane moves to another folder, so the open tabs can be remembered.
+    static let butterfinderNavigated = Notification.Name("com.butterfinder.navigated")
+}
