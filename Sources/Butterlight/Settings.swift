@@ -15,13 +15,14 @@ final class LSettings {
     var webFallback: Bool { didSet { d.set(webFallback, forKey: "webFallback") } }
     var maxResults: Int { didSet { d.set(maxResults, forKey: "maxResults") } }
     var glass: Bool { didSet { d.set(glass, forKey: "glass") } }
+    var signatureAnimation: Bool { didSet { d.set(signatureAnimation, forKey: "signatureAnimation") } }
 
     var theme: Theme { Theme.named(themeID) }
 
     private init() {
         func b(_ k: String) -> Bool { UserDefaults.standard.object(forKey: k) as? Bool ?? true }
         themeID = UserDefaults.standard.string(forKey: "theme") ?? "system"
-        searchFiles = b("searchFiles"); calculator = b("calculator"); clipboard = b("clipboard"); webFallback = b("webFallback"); glass = b("glass")
+        searchFiles = b("searchFiles"); calculator = b("calculator"); clipboard = b("clipboard"); webFallback = b("webFallback"); glass = b("glass"); signatureAnimation = b("signatureAnimation")
         let m = UserDefaults.standard.integer(forKey: "maxResults")
         maxResults = m == 0 ? 8 : m
     }
@@ -66,6 +67,7 @@ struct LauncherSettingsView: View {
             Section("Look") {
                 ThemePicker(selection: $s.themeID)
                 Toggle("Glass background", isOn: $s.glass)
+                Toggle("Signature animation (light trace and cascading results)", isOn: $s.signatureAnimation)
             }
             Section("System") {
                 Toggle("Open at login", isOn: Binding(get: { login }, set: { on in

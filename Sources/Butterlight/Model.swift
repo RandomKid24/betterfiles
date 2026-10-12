@@ -21,6 +21,7 @@ final class Model {
     var rows: [LRow] = []
     var selected = 0
     var visible = false
+    var launching = false   // true from the moment a result is opened until the panel is gone: drives the "launch" animation
     var onDismiss: () -> Void = {}
 
     @ObservationIgnored private let names = NameSearch()
@@ -142,8 +143,9 @@ final class Model {
     /// Dismisses first so the panel never waits on the target app; the open happens off the main thread.
     /// Folders open in Butterfinder; `reveal` shows the item's folder there with the item selected.
     func open(_ row: LRow, reveal: Bool = false) {
+        launching = true
         if let run = row.run { run(); onDismiss(); return }
-        guard let path = row.path else { return }
+        guard let path = row.path else { launching = false; return }
         usage.record(path: path)
         refreshUsage()
         onDismiss()
@@ -235,6 +237,7 @@ final class Model {
         indexed = []
         contentHits = []
         contentSearching = false
+        launching = false
         rows = []
         selected = 0
         base = apps + usageItems   // no disk access here: opening must feel instant

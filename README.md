@@ -44,7 +44,7 @@ Press **⌘ Space** and start typing.
 - **Direct actions for addresses:** type an IP (`192.168.1.1:8080`), `localhost:3000` or `github.com/…` and press Return to open it in your browser.
 - **Right-click any result** (with icons) for Open, Show in Butterfinder, Reveal in Finder, Open With, Copy Path, Copy Name, Open in Terminal, Remove from Recents and Move to Trash.
 - **Keyboard first:** `⌘1`–`⌘9` open the first nine results, `⌥↩` copies the path, `⇧↩` opens Terminal, `⌘⌫` trashes.
-- **Silky animations:** a highlight that glides between rows, blur-in on open, instant dismiss.
+- **Signature animation:** a comet of light traces the panel edge as it opens, results cascade in, the highlight glides between rows, and a launched icon swells as the panel sinks away. Optional, and off automatically with macOS Reduce Motion.
 
 <p align="center">
   <img src="docs/images/launcher-folder.png" alt="Browsing a folder in Butterlight" width="760">

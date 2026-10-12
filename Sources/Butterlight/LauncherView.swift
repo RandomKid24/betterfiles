@@ -23,6 +23,7 @@ struct Row: View {
     let selected: Bool
     let number: Int?          // 1...9: the Cmd+number shortcut
     let query: String         // highlighted inside the title
+    var launching = false     // the panel is closing because this row was opened
     @State private var icon: NSImage?
 
     private var title: AttributedString {
@@ -44,8 +45,10 @@ struct Row: View {
                 }
             }
             .frame(width: 30, height: 30)
-            .scaleEffect(selected ? 1.1 : 1)
+            .scaleEffect(selected && launching ? 1.7 : (selected ? 1.1 : 1))   // swells as it "launches"
+            .opacity(selected && launching ? 0 : 1)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: selected)
+            .animation(.easeIn(duration: 0.18), value: launching)
             VStack(alignment: .leading, spacing: 1) {
                 Text(title).font(.system(size: 14, weight: .medium)).lineLimit(1)
                 Text(row.subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
@@ -69,6 +72,11 @@ struct LauncherView: View {
     @Bindable var model: Model
     @FocusState private var focused: Bool
     @Namespace private var highlight
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var trace: CGFloat = 0          // how far the light has travelled around the border (0...1)
+    @State private var traceOpacity = 0.0
+    @State private var revealed = true             // flips false then true to cascade the rows in
+    private var animated: Bool { LSettings.shared.signatureAnimation && !reduceMotion }
 
     // Matches the large continuous corners of macOS 26 windows and Spotlight.
     private let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
@@ -78,7 +86,8 @@ struct LauncherView: View {
             HStack(spacing: 12) {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 20, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(model.text.isEmpty ? AnyShapeStyle(.secondary) : AnyShapeStyle(LSettings.shared.theme.accentColor))
+                    .animation(.easeOut(duration: 0.25), value: model.text.isEmpty)   // lights up once you start typing
                 TextField("Search apps and files, or type / to browse", text: $model.text)
                     .textFieldStyle(.plain)
                     .font(.system(size: 22))
@@ -113,7 +122,7 @@ struct LauncherView: View {
                     ScrollView(.vertical, showsIndicators: false) {
                         VStack(spacing: 2) {
                             ForEach(Array(model.rows.enumerated()), id: \.element.id) { i, row in
-                                Row(row: row, selected: i == model.selected, number: i < 9 ? i + 1 : nil, query: model.highlight)
+                                Row(row: row, selected: i == model.selected, number: i < 9 ? i + 1 : nil, query: model.highlight, launching: model.launching)
                                     .background {
                                         // One pill shared by all rows: it glides to the selected row instead of blinking.
                                         if i == model.selected {
@@ -125,6 +134,10 @@ struct LauncherView: View {
                                         }
                                     }
                                     .id(row.id)
+                                    // Cascade in when the results first appear. Rows added later (more typing) don't replay it.
+                                    .opacity(revealed || !animated ? 1 : 0)
+                                    .offset(y: revealed || !animated ? 0 : 10)
+                                    .animation(.spring(response: 0.4, dampingFraction: 0.78).delay(Double(min(i, 8)) * 0.035), value: revealed)
                                     .onTapGesture { model.selected = i; model.openSelected() }
                                     .contextMenu { RowMenu(model: model, row: row) }
                             }
@@ -165,6 +178,17 @@ struct LauncherView: View {
         .background { if !LSettings.shared.glass { shape.fill(LSettings.shared.theme.surfaceColor ?? Color(nsColor: .windowBackgroundColor)) } }
         .glassEffect(LSettings.shared.glass ? .regular : .identity, in: shape)
         .overlay { shape.strokeBorder(LSettings.shared.theme.accentColor.opacity(0.28), lineWidth: 1) }   // the one and only border
+        .overlay {
+            // On opening, a comet of light runs once around the edge, then fades. It is a short stroke on a thin path,
+            // so it costs almost nothing to draw.
+            if animated {
+                shape.trim(from: max(0, trace - 0.3), to: trace)
+                    .stroke(LSettings.shared.theme.accentColor, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                    .shadow(color: LSettings.shared.theme.accentColor, radius: 6)
+                    .opacity(traceOpacity)
+                    .allowsHitTesting(false)
+            }
+        }
         .background {
             // Soft shadow from a plain blurred shape behind the card, cut away inside it so it never tints the glass.
             // Cheap: it only redraws when the card's size changes, unlike a shadow over live content.
@@ -172,8 +196,8 @@ struct LauncherView: View {
                 .mask { ZStack { Rectangle().padding(-90); shape.blendMode(.destinationOut) }.compositingGroup() }
         }
         // Pop in from slightly smaller and higher, like Spotlight; spring so it settles instead of stopping dead.
-        .scaleEffect(model.visible ? 1 : 0.94, anchor: .top)
-        .offset(y: model.visible ? 0 : -10)
+        .scaleEffect(x: model.visible ? 1 : 0.96, y: model.visible ? 1 : 0.88, anchor: .top)
+        .offset(y: model.visible ? 0 : (model.launching ? 8 : -10))   // opens from above; after launching something it sinks away
         .opacity(model.visible ? 1 : 0)
         // Springy on the way in, quick ease on the way out.
         // The results block grows/collapses smoothly; per-keystroke count changes deliberately don't animate.
@@ -184,7 +208,21 @@ struct LauncherView: View {
         .onKeyPress(.downArrow) { model.move(1); return .handled }
         .onKeyPress(.upArrow) { model.move(-1); return .handled }
         .onKeyPress(.escape) { model.onDismiss(); return .handled }
-        .onChange(of: model.visible) { if model.visible { focused = true } }
+        .onChange(of: model.visible) {
+            guard model.visible else { return }
+            focused = true
+            guard animated else { return }
+            trace = 0; traceOpacity = 1
+            DispatchQueue.main.async {
+                withAnimation(.timingCurve(0.25, 0.1, 0.2, 1, duration: 0.85)) { trace = 1 }
+                withAnimation(.easeOut(duration: 0.3).delay(0.6)) { traceOpacity = 0 }
+            }
+        }
+        .onChange(of: model.rows.isEmpty) {
+            guard !model.rows.isEmpty, animated else { return }
+            revealed = false
+            DispatchQueue.main.async { revealed = true }
+        }
     }
 }
 

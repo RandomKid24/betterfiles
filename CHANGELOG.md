@@ -61,6 +61,9 @@
 ## [Unreleased]
 
 ### Added
+- Butterlight: **signature animation.** When the panel opens, a comet of light in your theme color runs once around its edge; results cascade in when they first appear (typing more doesn't replay it); the search icon lights up once you type; opening a result makes its icon swell and fade as the panel sinks away. Turn it off in Butterlight's settings. It is also skipped automatically when macOS "Reduce Motion" is on.
+
+### Added
 - Butterfinder: **search subfolders.** The menu in the filter box has "Include subfolders": the search then covers the folder and everything inside it, with results shown as a flat list ("3 matches in subfolders"). Right-click a result for "Show in Enclosing Folder".
 - Butterfinder: **smart folders.** Save any search (words, operators, scope) from the filter menu; it appears under "Smart Folders" in the sidebar and runs again whenever you open it. Right-click to remove.
 - Butterfinder: **search operators** that combine with each other and with words: `kind:image` (also pdf, document, spreadsheet, video, audio, archive, code, folder, app), `ext:pdf`, `size>10mb`, `size<500kb`, `newer:7d`, `older:1y`, and `#tag`. The filter menu has an "Add a Filter" list so you don't have to remember them.
